@@ -40,7 +40,6 @@ jobs:
           npm run build
 
       - name: Upload Pages Artifact
-          # Deploying from website/dist which is output path relative to repo root
         uses: actions/upload-pages-artifact@v3
         with:
           path: website/dist
