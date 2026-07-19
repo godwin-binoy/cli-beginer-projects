@@ -1,0 +1,591 @@
+---
+// Server-side Astro Template (Build Target)
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLI Projects - WebAssembly Playground</title>
+  <script is:inline src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#090d16] text-[#e6edf3] font-['Plus_Jakarta_Sans',sans-serif] min-h-screen flex flex-col antialiased select-none">
+
+  <!-- Interactive Header bar -->
+  <header class="border-b border-slate-800 bg-[#0d111a]/85 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+    <div class="flex items-center space-x-3">
+      <div class="p-2 bg-indigo-600/10 rounded-lg border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+        <svg class="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+          CLI Playground
+        </h1>
+        <p class="text-xs text-slate-500 font-medium">Interactive WebAssembly sandbox</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs">
+        <span class="relative flex h-2.5 w-2.5">
+          <span id="runtime-status-pulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+          <span id="runtime-status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+        </span>
+        <span id="runtime-status-text" class="text-slate-400 font-medium font-mono">WASM Engine: Standby</span>
+      </div>
+
+      <a href="https://github.com/godwin-binoy/cli-beginer-projects" target="_blank" class="flex items-center space-x-2 text-xs text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-lg transition-all duration-200">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.193 22 16.44 22 12.017 22 6.484 17.522 2 12 2z"/>
+        </svg>
+        <span class="font-medium font-mono">Repository Context</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Split Screen Workspace Structure -->
+  <div class="flex-1 flex overflow-hidden">
+    
+    <!-- Projects Selection Sidebar -->
+    <aside class="w-80 border-r border-slate-800 bg-[#0d111a]/40 flex flex-col overflow-y-auto">
+      <div class="p-4 border-b border-slate-800">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Project Index</span>
+      </div>
+      <div id="project-list" class="flex-1 p-3 space-y-1">
+        <!-- Injected dynamically via client script -->
+      </div>
+    </aside>
+
+    <!-- Coding and Execution Panel Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden bg-[#090d16]">
+      
+      <!-- Interactive Editor Panel -->
+      <section class="flex flex-col border-r border-slate-800 overflow-hidden h-full">
+        <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+            <span id="editor-filename" class="text-sm font-semibold font-mono text-slate-300">File: Loading...</span>
+            <span id="editor-badge" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-mono">Python</span>
+          </div>
+          
+          <button id="btn-reset" class="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-lg transition duration-200">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17" />
+            </svg>
+            <span class="font-medium">Reset File</span>
+          </button>
+        </div>
+        
+        <!-- Code Textarea with Interactive Lines Column -->
+        <div class="flex-1 p-4 flex flex-col min-h-0 bg-[#0d111a]/10">
+          <div class="flex-1 flex font-mono text-sm bg-[#060910] border border-slate-800/80 rounded-xl overflow-hidden focus-within:border-indigo-500/50 focus-within:ring-2 focus-within:ring-indigo-500/10 transition duration-200">
+            <div id="line-numbers" class="w-12 py-4 select-none text-right pr-3 text-slate-600 bg-[#04060b] border-r border-slate-900/80 font-mono leading-6 overflow-hidden">
+              1
+            </div>
+            <textarea id="code-editor" class="flex-1 p-4 bg-transparent text-slate-100 font-mono leading-6 outline-none resize-none overflow-y-auto whitespace-pre tab-size-4 scrollbar-thin select-text" style="tab-size: 4;" spellcheck="false" autocomplete="off"></textarea>
+          </div>
+        </div>
+        
+        <!-- Run Interface bar -->
+        <div class="p-4 border-t border-slate-800 bg-[#0d111a]/25 flex items-center justify-between">
+          <p class="text-xs text-slate-500 font-medium">Modify any logic line above, and run live in sandbox container.</p>
+          <button id="btn-run" class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.25)] transition-all duration-200 group cursor-pointer">
+            <svg class="w-4 h-4 text-emerald-100 group-hover:scale-110 transition duration-150" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <span id="run-text">Run Program</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Retro Terminal Simulator Column -->
+      <section class="flex flex-col overflow-hidden h-full bg-[#03060a]">
+        <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3" />
+            </svg>
+            <span class="text-sm font-semibold font-mono text-slate-300">Terminal Output</span>
+          </div>
+          <button id="btn-clear" class="text-xs text-slate-500 hover:text-slate-300 transition duration-150 cursor-pointer">Clear Console</button>
+        </div>
+
+        <div class="flex-1 p-6 overflow-hidden flex flex-col min-h-0 relative scanlines">
+          <div id="terminal-body" class="flex-1 overflow-y-auto whitespace-pre-wrap font-mono text-sm leading-6 pr-2 scrollbar-thin scrollbar-thumb-slate-800 text-slate-300 select-text">
+            <!-- Terminal stdout feeds here -->
+          </div>
+        </div>
+
+        <!-- Simulated Sandbox System Metrics Panel -->
+        <div class="border-t border-slate-800 bg-[#070b12] px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+          <div class="space-y-1">
+            <span class="text-slate-500 block">VIRTUAL INSTANCE</span>
+            <span id="stat-vm-type" class="text-slate-300 font-semibold">Pyodide WASM Core</span>
+          </div>
+          <div class="space-y-1">
+            <span class="text-slate-500 block">V-RAM ALLOCATION</span>
+            <span id="stat-mem" class="text-slate-300 font-semibold">4.8 MB (Idle)</span>
+          </div>
+          <div class="space-y-1">
+            <span class="text-slate-500 block">CONTAINER STATE</span>
+            <span id="stat-state" class="text-emerald-400 font-semibold flex items-center">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> Ready
+            </span>
+          </div>
+          <div class="space-y-1">
+            <span class="text-slate-500 block">V-CPU LOAD</span>
+            <span id="stat-cpu" class="text-slate-300 font-semibold">0.1% Core</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Interactive Sandbox Application logic and Core Compilation Engine -->
+  <script is:inline>
+    const PROJECTS = [
+      {
+        id: "character-counter",
+        title: "Character Counter",
+        lang: "python",
+        badge: "Python",
+        file: "Character-Counter/Character-counter.py",
+        description: "Counts and displays the length of a user-entered string.",
+        code: `while True :\n\tprint('Character Counter\\n-----------------\\n')\n\tstring = input('Enter characters : ')\n\tprint(f"\\nLength of characters : {len(string)}\\n")\n\tuser_input = input("[Enter 'exit' to exit]\\n[Enter to continue]\\n")\n\tif user_input == 'exit' :\n\t\texit()`
+      },
+      {
+        id: "dice",
+        title: "Dice Simulator",
+        lang: "python",
+        badge: "Python",
+        file: "Dice/Dice.py",
+        description: "Simulates a standard 6-sided dice roll.",
+        code: `print('Dice\\n----')\n\nimport random\n\nwhile True :\n\tinput('\\nEnter to roll dice : ')\n\tnumber = random.randint(1,6)\n\tprint(f'\\n-----\\n| {number} |\\n-----\\n')`
+      },
+      {
+        id: "guess-number",
+        title: "Guess The Number",
+        lang: "python",
+        badge: "Python",
+        file: "Guss-The-Number/Guss The Number.py",
+        description: "A game where you guess a hidden number within a dynamic range using logarithmic scale feedback.",
+        code: `print('Guss The Number\\n---------------')\n\nimport random\n\nimport math\n\nwhile True :\n    print('\\nEnter Lower range of number\\n')\n    lower_range = input('  : ')\n    print('\\nEnter Higher range of number\\n')\n    higher_range = input('  : ')\n    count =  0\n\n    try :\n        lower_range = int(lower_range)\n        higher_range = int(higher_range)\n    except :\n        print('\\nError : Make sure that you entered integer\\n')\n        continue\n\n    player_chances = round(math.log(higher_range + lower_range + 1 , 2 ))\n    print('\\nYou have ', player_chances, ' Chances')\n\n    while True :\n        number = random.randint(lower_range, higher_range)\n        while player_chances > 0 :\n            user_input = input('\\nGuss the number : ')\n            if user_input == 'exit' :\n                exit()\n            try :\n                user_input = int(user_input)\n            except :\n                print('\\nError : Make sure that you entered integer\\n')\n                continue\n            player_chances -= 1\n            if user_input > number :\n                print(f"\\nIt's smaller than you gussed\\nYou have {player_chances} more chances")\n            if user_input < number :\n                print(f"\\nIt's larger than you gussed\\nYou have {player_chances} more chances")\n            if user_input == int(number) :\n                print("\\nIt's the number\\nYou done it !")\n                break\n        user_input_2 = input("\\nEnter 'exit' to exit\\nEnter 'reset' to reset the range\\nPress enter to play again : ")\n        if user_input_2 == 'exit' :\n            exit()\n        if user_input_2 == 'reset' :\n            break`
+      },
+      {
+        id: "math-game",
+        title: "Math Game",
+        lang: "python",
+        badge: "Python",
+        file: "Math-Game/Math-Game.py",
+        description: "An arithmetic test with customizable level scaling and scoring system.",
+        code: `print('Math Game\\n---------')\n\nimport random\n\ndef set_level() :\n\tglobal length , operator , score\n\tscore = 0\n\tlevel = input('\\nSelect level\\n------------\\nLevel 1 : numbers from 1 to 10\\nLevel 2 : numbers from 1 to 100 \\nLevel 3 : numbers from 1 to 1000\\n--------------------------------\\n\\nEnter here : ')\n\ttry :\n\t\tlevel = int(level)\t\t\n\t\tif level > 3 or level <= 0 :\n\t\t\tprint('\\nError : Make sure you select level from 1 to 3.\\n')\n\t\t\tset_level()\n\t\telse :\n\t\t\tlength = 10 ** level\n\texcept :\n\t\t\tprint("\\nError : Make sure you enter '1' '2' or '3'.\\n")\n\t\t\tinput('Press enter to continue : ')\n\t\t\tset_level()\n\toperator = input('\\n+ , - , * , or / ?\\n\\nSelect operator : ')\n\tif operator != '+' and operator != '-' and operator != '*' and operator != '/' :\n\t\tprint("Error : Make sure you entered '+' , '-' , '*' or '/'.")\n\t\tinput('Press enter to continue : ')\n\t\tset_level()\n\tif operator == '/' :\n\t\tprint(f'Number can be more than {length}.')\n\nset_level()\ninput("\\nType 'exit' to exit game and type 'restart' to restart the game at any time.\\n\\nPress enter to start the game : ")\n\nwhile True :\n\tfirst_number = random.randint(2 , length)\n\tsecond_number = random.randint(1 , first_number - 1)\n\tif operator == '+' :\n\t\tanswer = first_number + second_number\n\telif operator == '-' :\n\t\tanswer = first_number - second_number\n\telif operator == '*' :\n\t\tanswer = first_number * second_number\n\telse :\n\t\tlength_of_second_number= len(str(second_number))\n\t\tif length_of_second_number == 2 or length_of_second_number == 3 :\n\t\t\tsecond_number = second_number // 10 \n\t\tfirst_number = first_number + (second_number - ( first_number % second_number ) )\n\t\tanswer = first_number / second_number\n\tprint(f'\\n{first_number} {operator} {second_number} ?\\n') \n\tuser_input = input('  : ')\n\ttry :\n\t\tuser_input = int(user_input)\n\t\tif user_input == answer :\n\t\t\tscore += 1\n\t\t\tprint(f'Correct! Your score : {score}')\n\t\telse :\n\t\t\tprint(f'\\nYou loss ! \\nAnswer is {answer}\\nYour score : {score}\\n\\nEnter to restart')\n\t\t\tuser_input = input('  : ')\n\t\t\tscore = 0\n\texcept :\n\t\tprint("\\nMake sure you entered integer , 'exit' or 'reset.'\\n")\n\t\tinput('Press enter to continue : ')\n\tif user_input == 'exit' :\n\t\texit()\n\telif user_input == 'reset' :\n\t\tset_level()`
+      },
+      {
+        id: "multiplication-py",
+        title: "Multiplication Table (Python)",
+        lang: "python",
+        badge: "Python",
+        file: "Multiplication-Table/Multiplication-table.py",
+        description: "Generates products (1 to 10) for any input number in Python.",
+        code: `print("Multiplication table\\n---------------------")\nwhile True :\t\n    user_input = input('\\nTable of : ')\n    try :\n    \tuser_input = int(user_input)\n    except :\n    \tprint('\\nError : Make sure you entered numbers\\n')\n    \tcontinue\n    if user_input == 0 :\n    \tprint('\\nMultiplication table of 0 cannot be calculated\\n')\n    \tcontinue\n    for i in range(1,11) :\n    \tprint(f'{i} × {user_input} = {i * user_input}')`
+      },
+      {
+        id: "multiplication-c",
+        title: "Multiplication Table (C)",
+        lang: "c",
+        badge: "C Code",
+        file: "Multiplication-Table/multiplication_table.c",
+        description: "Generates products (1 to 10) for any input number in C.",
+        code: `#include <stdio.h>\n#include <stdbool.h>\nint main() {\n\tprintf("Multiplication table\\n---------------------");\n\tint user_input;\n\n\twhile (true) {\n\t\tprintf("\\n\\nTable of : ");\n\t\tscanf("%d", &user_input);\n\n\t\tfor (int i = 1; i <= 10; i++) {\n\t\t\tprintf("\\n%d × %d = %d", i, user_input, i * user_input);\n\t\t}\n\t}\n\n\treturn 0;\n}`
+      },
+      {
+        id: "multiplication-java",
+        title: "Multiplication Table (Java)",
+        lang: "java",
+        badge: "Java Code",
+        file: "Multiplication-Table/multiplication_table.java",
+        description: "Generates products (1 to 10) for any input number in Java.",
+        code: `import java.util.Scanner;\n\npublic class multiplication_table {\n    public static void main(String[] args) {\n        System.out.println("Multiplication table\\n--------------------");\n        while (true) {\n            System.out.println("Table of : ");\n            String input = user_input();\n            if (check(input)) {\n                int table_of = Integer.parseInt(input);\n                if (table_of != 0) {\n                    System.out.println("");\n                    for (int i = 1; i <= 10; i++) {\n                        System.out.println(i + " × " + table_of + " = " + (i * table_of));\n                    }\n                    System.out.println("");\n                } else {\n                    System.out.println("\\nError : Multiplication table of 0 cannot be calculated\\n");\n                }\n            } else {\n                System.out.println("\\nError : Make sure you entered number\\n");\n            }\n        }\n    }\n    public static String user_input() {\n        Scanner scanner = new Scanner(System.in);\n        String input = scanner.nextLine();\n        return input;\n    }\n    public static boolean check(String value) {\n        for (char c : value.toCharArray()) {\n            if (! Character.isDigit(c)) {\n                return false;\n            }\n        }\n        return true;\n    }\n}`
+      },
+      {
+        id: "password-generator",
+        title: "Password Generator",
+        lang: "python",
+        badge: "Python",
+        file: "Password-Generator/Pasword generator.py",
+        description: "Dynamically builds secure random passwords based on selected criteria.",
+        code: `print('Password Generator\\n------------------')\n\nimport random\n\nnumbers = '1234567890'\ncapital_letters ='ABCDEFGHIJKLMNOPQRSTUVWXYZ'\nsmall_letters ='abcdefghijklmnopqrstuvwxyz'\nsymbols = '@#_&-+()/*:;!?.~\\'\`''""|=°<>{}\\\\%[]'\n\ndef ask_user() :\n\tcharacter = ''\n\tuser_input = input('Include Numericals in password ? \\nEnter here : ')\n\tif user_input == 'y' :\n\t\tcharacter += numbers\n\tuser_input = input('Include Capital letters in password ? \\nEnter here : ')\n\tif user_input == 'y' :\n\t\tcharacter += capital_letters\n\tuser_input = input('Include Small letters in password ? \\nEnter here : ')\n\tif user_input == 'y' :\n\t\tcharacter += small_letters\n\tuser_input = input('Include Symbols in password ? \\nEnter here : ')\n\tif user_input == 'y' :\n\t\tcharacter += symbols\n\treturn character\n\nwhile True :\n\tlength = input('\\nLength : ')\n\ttry :\n\t\tlength = int(length)\n\texcept :\n\t\tprint('\\nError : Make sure you entered numericals')\n\t\tcontinue\n\tprint("\\n'y' = yes\\n'n' = no\\n---------\\n")\n\tcharacters = ask_user()\n\tif len(characters) == 0 :\n\t\tprint('\\nError\\n')\n\t\tcharacters = ask_user()\n\ttry :\t\n\t\tprint('Password : ',''.join(random.sample(characters,length)))\n\texcept :\n\t\tprint('\\nError : May be the password is too long \\n')\n\tuser_input = input("\\nEnter 'exit' to exit\\nEnter to continue : ")\n\tif user_input == 'exit' :\n\t\texit()`
+      },
+      {
+        id: "ram-filler",
+        title: "RAM Filler",
+        lang: "python",
+        badge: "Python Sim",
+        file: "Ram-filler/Ram filler.py",
+        description: "Stress-tests local memory inside a sandboxed safe browser-simulation.",
+        code: `print('Ram Filler\\n----------\\n\\nThis program will crash automatically after filling ram\\n')\ninput('Enter to fill ram : ')\ndata = '0'\nprint('Filling ram...')\nwhile True:\n    data += data`
+      },
+      {
+        id: "random-generator",
+        title: "Random Number Generator",
+        lang: "python",
+        badge: "Python",
+        file: "Random-number-generator/random number generator.py",
+        description: "Generates random integers within user-defined boundaries.",
+        code: `print('Random Number Generator\\n-----------------------')\n\nimport random\n\nwhile True :\n\tlowest_number = input('\\nEnter Lowest number :')\n\thighest_number = input('Enter Highest number : ')\n\ttry :\n\t\tlowest_number = int(lowest_number)\n\t\thighest_number = int(highest_number)\n\texcept :\n\t\tprint('\\nError : Make sure you entered integer\\n')\n\t\tcontinue \n\twhile True :\n\t\ttry :\n\t\t\tprint(f'\\nRandom number : {random.randint(lowest_number , highest_number)}\\n')\n\t\texcept :\n\t\t\tprint('\\nError : Make sure that Highest number is larger than Smallest number\\n')\n\t\t\tcontinue \n\t\tuser_input = input("Enter 'reset' to reset highest and lowest number\\nEnter 'exit' to exit\\nEnter to generate another number :")\n\t\tif user_input == 'reset' :\n\t\t\tbreak\n\t\tif user_input == 'exit' :\n\t\t\texit()`
+      }
+    ];
+
+    let activeProjectId = PROJECTS[0].id;
+    let isRunning = false;
+    let pyodideInstance = null;
+
+    const projectStates = {};
+    PROJECTS.forEach(p => {
+      projectStates[p.id] = p.code;
+    });
+
+    const projectListEl = document.getElementById('project-list');
+    const filenameEl = document.getElementById('editor-filename');
+    const badgeEl = document.getElementById('editor-badge');
+    const editorEl = document.getElementById('code-editor');
+    const lineNumbersEl = document.getElementById('line-numbers');
+    const terminalEl = document.getElementById('terminal-body');
+    const btnRun = document.getElementById('btn-run');
+    const runText = document.getElementById('run-text');
+    const btnReset = document.getElementById('btn-reset');
+    const btnClear = document.getElementById('btn-clear');
+    const statusDot = document.getElementById('runtime-status-dot');
+    const statusPulse = document.getElementById('runtime-status-pulse');
+    const statusText = document.getElementById('runtime-status-text');
+
+    const statVmType = document.getElementById('stat-vm-type');
+    const statMem = document.getElementById('stat-mem');
+    const statState = document.getElementById('stat-state');
+    const statCpu = document.getElementById('stat-cpu');
+
+    function renderSidebar() {
+      projectListEl.innerHTML = PROJECTS.map(project => {
+        const isActive = project.id === activeProjectId;
+        return `
+          <button data-id="${project.id}" class="w-full text-left px-3.5 py-3 rounded-lg flex flex-col space-y-1 transition-all duration-150 cursor-pointer ${
+            isActive 
+              ? 'bg-indigo-600/15 border border-indigo-500/30 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] font-bold' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent font-medium'
+          }">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-xs font-mono tracking-tight">${project.title}</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#0a0f1d] text-slate-500 border border-slate-800/60 uppercase font-semibold">${project.badge}</span>
+            </div>
+            <span class="text-[11px] leading-relaxed text-slate-500 truncate w-full font-sans">${project.description}</span>
+          </button>
+        `;
+      }).join('');
+
+      projectListEl.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchProject(btn.getAttribute('data-id'));
+        });
+      });
+    }
+
+    function switchProject(id) {
+      if (isRunning) {
+        writeToTerminal("\n[System Warning] A program is actively executing. Please terminate or wait.\n", "error");
+        return;
+      }
+      projectStates[activeProjectId] = editorEl.value;
+      activeProjectId = id;
+      const project = PROJECTS.find(p => p.id === id);
+      
+      filenameEl.textContent = `File: ${project.file}`;
+      badgeEl.textContent = project.badge;
+      editorEl.value = projectStates[id];
+      
+      statVmType.textContent = project.badge.includes("Python") ? "Pyodide WASM Core" : "JS Simulator Engine";
+      statMem.textContent = "4.8 MB (Idle)";
+      statCpu.textContent = "0.1% Core";
+      
+      renderSidebar();
+      updateLineNumbers();
+      
+      clearTerminal();
+      writeToTerminal(`Initialized virtual terminal workspace for: ${project.title}.\nClick "Run Program" to launch.\n`, "system");
+    }
+
+    editorEl.addEventListener('scroll', () => {
+      lineNumbersEl.scrollTop = editorEl.scrollTop;
+    });
+
+    function updateLineNumbers() {
+      const lines = editorEl.value.split('\n').length;
+      let gutterContent = '';
+      for (let i = 1; i <= lines; i++) {
+        gutterContent += `${i}\n`;
+      }
+      lineNumbersEl.textContent = gutterContent;
+    }
+    editorEl.addEventListener('input', updateLineNumbers);
+
+    editorEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = editorEl.selectionStart;
+        const end = editorEl.selectionEnd;
+        editorEl.value = editorEl.value.substring(0, start) + "    " + editorEl.value.substring(end);
+        editorEl.selectionStart = editorEl.selectionEnd = start + 4;
+        updateLineNumbers();
+      }
+    });
+
+    function writeToTerminal(text, type = "default") {
+      const span = document.createElement('span');
+      if (type === "error") {
+        span.className = "text-rose-400 font-mono";
+      } else if (type === "system") {
+        span.className = "text-indigo-400 font-mono font-semibold";
+      } else {
+        span.className = "text-slate-100 font-mono";
+      }
+      span.textContent = text;
+      terminalEl.appendChild(span);
+      terminalEl.scrollTop = terminalEl.scrollHeight;
+    }
+
+    function clearTerminal() {
+      terminalEl.innerHTML = "";
+    }
+
+    btnClear.addEventListener('click', clearTerminal);
+
+    async function initPyodide() {
+      if (pyodideInstance) return pyodideInstance;
+      
+      statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
+      statusPulse.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
+      statusText.textContent = "WASM Engine: Starting...";
+      writeToTerminal("Loading WebAssembly standard layers...\n", "system");
+      
+      try {
+        pyodideInstance = await loadPyodide({
+          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
+        });
+        
+        pyodideInstance.setStdout({
+          write: (text) => {
+            writeToTerminal(text);
+            return text.length;
+          }
+        });
+
+        pyodideInstance.setStderr({
+          write: (text) => {
+            writeToTerminal(text, "error");
+            return text.length;
+          }
+        });
+
+        await pyodideInstance.runPythonAsync(`
+import builtins
+import sys
+import js
+
+def web_input(prompt_msg=""):
+    if prompt_msg:
+        sys.stdout.write(prompt_msg)
+        sys.stdout.flush()
+    val = js.prompt(prompt_msg or "CLI Input Required:")
+    if val is None:
+        val = "exit"
+    else:
+        sys.stdout.write(val + "\\n")
+        sys.stdout.flush()
+    return val
+
+builtins.input = web_input
+`);
+
+        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
+        statusPulse.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
+        statusText.textContent = "WASM Engine: Active";
+        writeToTerminal("WebAssembly Python sandbox context loaded successfully.\n\n", "system");
+        return pyodideInstance;
+      } catch (err) {
+        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500";
+        statusPulse.className = "";
+        statusText.textContent = "WASM Engine: Offline";
+        writeToTerminal(`Failed to initialize WASM Sandbox Engine: ${err.message}\n`, "error");
+        throw err;
+      }
+    }
+
+    async function runRamFillerSim() {
+      clearTerminal();
+      writeToTerminal("Ram Filler\n----------\n\nThis program will crash automatically after filling ram\n\n", "default");
+      writeToTerminal("Enter to fill ram : ", "default");
+      
+      await new Promise((resolve) => {
+        setTimeout(() => {
+          const val = prompt("Enter to fill ram:");
+          writeToTerminal((val || "") + "\n");
+          resolve();
+        }, 50);
+      });
+
+      writeToTerminal("Filling ram...\n", "default");
+      statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse mr-1.5"></span> Heap Allocating';
+      statCpu.textContent = "98.4% Load";
+
+      let memoryAllocated = 4096;
+      return new Promise((resolve) => {
+        const interval = setInterval(() => {
+          memoryAllocated *= 2;
+          let formattedMem = "";
+          
+          if (memoryAllocated < 1024 * 1024) {
+            formattedMem = (memoryAllocated / 1024).toFixed(1) + " MB";
+          } else if (memoryAllocated < 1024 * 1024 * 1024) {
+            formattedMem = (memoryAllocated / (1024 * 1024)).toFixed(1) + " GB";
+          } else {
+            formattedMem = (memoryAllocated / (1024 * 1024 * 1024)).toFixed(1) + " TB";
+          }
+
+          writeToTerminal(`Allocated Virtual Heap: ${formattedMem} | Status: System Saturation...\n`);
+          statMem.textContent = formattedMem;
+
+          if (memoryAllocated >= 64 * 1024 * 1024) {
+            clearInterval(interval);
+            writeToTerminal("\n[CRITICAL SANBOX EXCEPTION] SYSTEM OUT-OF-MEMORY KILLER TRIGGERED.\n", "error");
+            writeToTerminal("Process terminated gracefully to defend host browser context.\n", "system");
+            
+            statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-rose-500 mr-1.5"></span> OOM Crashed';
+            statMem.textContent = "Heap Dumped";
+            statCpu.textContent = "0.0% Cold";
+            resolve();
+          }
+        }, 150);
+      });
+    }
+
+    async function runMultiplicationSim(code) {
+      clearTerminal();
+      
+      let limit = 10;
+      const loopRegex = /i\s*(<=|<)\s*(\d+)/;
+      const match = code.match(loopRegex);
+      if (match) {
+        const isLessThanOrEqual = match[1] === '<=';
+        const num = parseInt(match[2], 10);
+        limit = isLessThanOrEqual ? num : num - 1;
+      }
+
+      writeToTerminal(`Multiplication table (Dynamic JS-WASM Simulator, Limit: ${limit})\n---------------------\n`);
+      statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse mr-1.5"></span> Executing';
+      
+      while (true) {
+        writeToTerminal("\nTable of : ");
+        
+        const val = await new Promise((resolve) => {
+          setTimeout(() => {
+            const input = prompt("Table of:");
+            resolve(input);
+          }, 50);
+        });
+
+        if (val === null || val === "exit") {
+          writeToTerminal("exit\n\n[Program exited successfully]\n", "system");
+          break;
+        }
+
+        writeToTerminal(val + "\n");
+        const num = parseInt(val.trim(), 10);
+        
+        if (isNaN(num)) {
+          writeToTerminal("\nError : Make sure you entered numbers\n", "error");
+          continue;
+        }
+
+        if (num === 0) {
+          writeToTerminal("\nMultiplication table of 0 cannot be calculated\n", "error");
+          continue;
+        }
+
+        for (let i = 1; i <= limit; i++) {
+          writeToTerminal(`${i} × ${num} = ${i * num}\n`);
+        }
+      }
+    }
+
+    btnRun.addEventListener('click', async () => {
+      if (isRunning) return;
+
+      isRunning = true;
+      btnRun.disabled = true;
+      btnRun.classList.add('opacity-75', 'cursor-not-allowed');
+      runText.textContent = "Running...";
+      
+      statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse mr-1.5"></span> Sandboxing';
+      statCpu.textContent = "15.0% Core";
+
+      try {
+        const code = editorEl.value;
+        
+        if (activeProjectId === "ram-filler") {
+          await runRamFillerSim();
+        } else if (activeProjectId === "multiplication-c" || activeProjectId === "multiplication-java") {
+          await runMultiplicationSim(code);
+        } else {
+          clearTerminal();
+          const py = await initPyodide();
+          
+          statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> Executing';
+          statCpu.textContent = "38.5% Core";
+          statMem.textContent = "12.4 MB (Active)";
+
+          await py.runPythonAsync(code);
+          writeToTerminal("\n[Program finished execution successfully]\n", "system");
+        }
+      } catch (err) {
+        const errMsg = err.message || String(err);
+        if (errMsg.includes("SystemExit")) {
+          writeToTerminal("\n[Program exited successfully]\n", "system");
+        } else {
+          writeToTerminal(`\n[Execution Error]\n${errMsg}\n`, "error");
+        }
+      } finally {
+        isRunning = false;
+        btnRun.disabled = false;
+        btnRun.classList.remove('opacity-75', 'cursor-not-allowed');
+        runText.textContent = "Run Program";
+        
+        statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5"></span> Ready';
+        statCpu.textContent = "0.1% Core";
+        if (activeProjectId !== "ram-filler") {
+          statMem.textContent = "4.8 MB (Idle)";
+        }
+      }
+    });
+
+    btnReset.addEventListener('click', () => {
+      if (confirm("Reset current file editor changes to repository defaults? All edits will be overwritten.")) {
+        const project = PROJECTS.find(p => p.id === activeProjectId);
+        editorEl.value = project.code;
+        projectStates[activeProjectId] = project.code;
+        updateLineNumbers();
+        writeToTerminal(`\n[System Workspace] Code reverted successfully.\n`, "system");
+      }
+    });
+
+    renderSidebar();
+    switchProject(PROJECTS[0].id);
+  </script>
+</body>
+</html>
