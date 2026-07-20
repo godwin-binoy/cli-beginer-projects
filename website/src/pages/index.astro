@@ -5,19 +5,13 @@ import '../styles/global.css';
 
 function getRootDir() {
   const cwd = process.cwd();
-  
-  // 1. Check if cwd itself has 'Character-Counter' (we are running from repo root)
   if (fs.existsSync(path.join(cwd, 'Character-Counter'))) {
     return cwd;
   }
-  
-  // 2. Check if we are inside 'website' and the parent has 'Character-Counter'
   const parentPath = path.resolve(cwd, '..');
   if (fs.existsSync(path.join(parentPath, 'Character-Counter'))) {
     return parentPath;
   }
-  
-  // 3. General upward recursive scan
   let dir = cwd;
   for (let i = 0; i < 6; i++) {
     if (fs.existsSync(path.join(dir, 'Character-Counter'))) {
@@ -27,8 +21,6 @@ function getRootDir() {
     if (parent === dir) break;
     dir = parent;
   }
-  
-  // Fallback to process.cwd()
   return cwd;
 }
 
@@ -88,45 +80,34 @@ function getProjects() {
 const projectsList = getProjects();
 ---
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CLI Projects - WebAssembly Playground</title>
-  <script is:inline src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <title>CLI Projects - Web Playground</title>
   <!-- Load Monaco Editor AMD Loader -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
-  <!-- Load Lucide Icons -->
-  <script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js" is:inline></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body class="bg-[#090d16] text-[#e6edf3] font-['Plus_Jakarta_Sans',sans-serif] min-h-screen flex flex-col antialiased select-none">
+<body class="bg-[#090d16] text-[#e6edf3] font-['Plus_Jakarta_Sans',sans-serif] h-full flex flex-col antialiased select-none">
 
   <!-- Header -->
-  <header class="border-b border-slate-800 bg-[#0d111a]/90 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+  <header class="border-b border-slate-800 bg-[#0d111a]/95 backdrop-blur px-6 py-4 flex items-center justify-between z-50 shrink-0">
     <div class="flex items-center space-x-3">
       <div class="p-2 bg-indigo-600/10 rounded-lg border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
         <i data-lucide="terminal" class="w-6 h-6 text-indigo-400"></i>
       </div>
       <div>
         <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          CLI Playground
+          CLI Sandbox
         </h1>
-        <p class="text-xs text-slate-500 font-medium">Interactive WebAssembly sandbox</p>
+        <p class="text-xs text-slate-500 font-medium">Interactive Web-Native Terminal & Compiler</p>
       </div>
     </div>
     
     <div class="flex items-center space-x-4">
-      <div class="flex items-center space-x-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-full text-xs">
-        <span class="relative flex h-2.5 w-2.5">
-          <span id="runtime-status-pulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-          <span id="runtime-status-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-        </span>
-        <span id="runtime-status-text" class="text-slate-400 font-medium font-mono">WASM Engine: Standby</span>
-      </div>
-
       <a href="https://github.com/godwin-binoy/cli-beginer-projects" target="_blank" class="flex items-center space-x-2 text-xs text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-lg transition-all duration-200">
         <i data-lucide="github" class="w-4 h-4"></i>
         <span class="font-medium font-mono">Repository</span>
@@ -134,115 +115,132 @@ const projectsList = getProjects();
     </div>
   </header>
 
-  <!-- Split Screen Workspace Structure -->
-  <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+  <!-- Mobile Tab Navigation Bar (Visible only on Mobile) -->
+  <div class="lg:hidden flex border-b border-slate-800 bg-[#0d111a] shrink-0">
+    <button id="tab-btn-explorer" class="flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5">
+      <i data-lucide="folder" class="w-4 h-4"></i> Explorer
+    </button>
+    <button id="tab-btn-editor" class="flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5">
+      <i data-lucide="code-2" class="w-4 h-4"></i> Editor
+    </button>
+    <button id="tab-btn-terminal" class="flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5">
+      <i data-lucide="terminal" class="w-4 h-4"></i> Terminal
+    </button>
+  </div>
+
+  <!-- Workspace Shell -->
+  <div class="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
     
-    <!-- Projects Selection Sidebar -->
-    <aside class="hidden md:flex w-80 border-r border-slate-800 bg-[#0d111a]/40 flex-col overflow-y-auto">
+    <!-- Projects Selection Explorer -->
+    <aside id="sidebar-explorer" class="w-full lg:w-72 border-r border-slate-800 bg-[#0d111a]/40 flex flex-col h-full lg:flex overflow-y-auto">
       <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Dynamic Project Index</span>
-        <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">{projectsList.length} Files</span>
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Project Index</span>
+        <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">{projectsList.length} files</span>
       </div>
-      <div id="project-list" class="flex-1 p-3 space-y-1">
+      <div class="p-3 border-b border-slate-800 bg-[#0c1018]">
+        <input type="text" id="file-search" placeholder="Search files..." class="w-full bg-slate-950 text-slate-300 border border-slate-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition-colors" />
+      </div>
+      <div id="project-list" class="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
         <!-- Injected dynamically via client script -->
       </div>
     </aside>
 
-    <!-- Coding and Execution Panel Grid -->
-    <main class="flex-1 flex flex-col overflow-hidden bg-[#090d16]">
+    <!-- Main Workspace (Editor + Terminal) -->
+    <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
       
-      <!-- Responsive Mobile Selector -->
-      <div class="md:hidden p-4 border-b border-slate-800 bg-[#0d111a]/60 flex flex-col gap-3">
-        <div>
-          <label for="mobile-project-selector" class="block text-xs font-semibold uppercase text-slate-500 tracking-wider mb-2">Select Project</label>
-          <select id="mobile-project-selector" class="w-full bg-slate-950 text-slate-200 border border-slate-800 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
-            <!-- Options dynamically added -->
-          </select>
+      <!-- Interactive Code Editor -->
+      <section id="panel-editor" class="hidden lg:flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden h-full">
+        <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="code-2" class="w-4 h-4 text-indigo-400"></i>
+            <span id="editor-filename" class="text-sm font-semibold font-mono text-slate-300">Loading Workspace...</span>
+            <span id="editor-badge" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">CODE</span>
+          </div>
+          
+          <button id="btn-reset" class="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 px-2.5 py-1.5 rounded transition duration-150">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            <span>Reset</span>
+          </button>
         </div>
-      </div>
-
-      <!-- IDE Editor and Console split pane -->
-      <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
         
-        <!-- Interactive Code Editor container -->
-        <section class="flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden min-h-[350px] lg:min-h-0 w-full">
-          <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="code-2" class="w-4 h-4 text-indigo-400"></i>
-              <span id="editor-filename" class="text-sm font-semibold font-mono text-slate-300">Loading IDE...</span>
-              <span id="editor-badge" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-mono">CODE</span>
-            </div>
-            
-            <button id="btn-reset" class="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-lg transition duration-200">
-              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-              <span class="font-medium">Reset Default</span>
-            </button>
-          </div>
-          
-          <!-- Full Featured Monaco IDE Integration container -->
-          <div class="flex-1 p-4 bg-[#0d111a]/10 relative overflow-hidden min-h-[300px] lg:min-h-0">
-            <div id="editor-container" class="w-full h-full rounded-xl border border-slate-800/80 overflow-hidden min-h-[300px]"></div>
-          </div>
-          
-          <!-- Editor Bottom Toolbar -->
-          <div class="p-4 border-t border-slate-800 bg-[#0d111a]/25 flex items-center justify-between flex-wrap gap-2">
-            <p class="text-xs text-slate-500 font-medium">Full Monaco IDE. Auto-saves changes in virtual memory.</p>
-            <button id="btn-run" class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.25)] transition-all duration-200 group cursor-pointer">
-              <i data-lucide="play" class="w-4 h-4 text-emerald-100 group-hover:scale-110 transition duration-150"></i>
-              <span id="run-text">Run Program</span>
-            </button>
-          </div>
-        </section>
+        <!-- Monaco Container -->
+        <div class="flex-1 p-3 bg-[#0d111a]/10 relative overflow-hidden min-h-0">
+          <div id="editor-container" class="w-full h-full rounded border border-slate-800/80 overflow-hidden"></div>
+        </div>
+        
+        <!-- Editor Bottom Actions -->
+        <div class="p-4 border-t border-slate-800 bg-[#0d111a]/25 flex items-center justify-between flex-wrap gap-2 shrink-0">
+          <p class="text-[11px] text-slate-500 font-medium">In-memory compiler. Edits run instantly inside the terminal.</p>
+          <button id="btn-run" class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-xs px-4.5 py-2 rounded transition shadow-[0_0_15px_rgba(16,185,129,0.15)] cursor-pointer">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            <span>Run Program</span>
+          </button>
+        </div>
+      </section>
 
-        <!-- Simulated Terminal Simulator -->
-        <section class="flex flex-col overflow-hidden min-h-[250px] lg:min-h-0 bg-[#03060a]">
-          <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <i data-lucide="terminal" class="w-4 h-4 text-indigo-400"></i>
-              <span class="text-sm font-semibold font-mono text-slate-300">Terminal Sandbox Output</span>
-            </div>
-            <button id="btn-clear" class="text-xs text-slate-500 hover:text-slate-300 transition duration-150 cursor-pointer">Clear Output</button>
+      <!-- Interactive Web-Native Terminal Sandbox -->
+      <section id="panel-terminal" class="hidden lg:flex flex-col overflow-hidden bg-[#030712] h-full">
+        <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="terminal" class="w-4 h-4 text-emerald-400"></i>
+            <span class="text-sm font-semibold font-mono text-slate-300">Terminal Shell</span>
           </div>
+          <button id="btn-clear" class="text-xs text-slate-500 hover:text-slate-300 transition duration-150 cursor-pointer">Clear</button>
+        </div>
 
-          <div class="flex-1 p-6 overflow-hidden flex flex-col min-h-0 relative">
-            <div id="terminal-body" class="flex-1 overflow-y-auto font-mono text-sm leading-6 pr-2 scrollbar-thin scrollbar-thumb-slate-800 text-slate-300 select-text">
-              <!-- Terminal logs feed here -->
-            </div>
+        <div class="flex-1 p-4 overflow-hidden relative">
+          <!-- Real wterm integration element -->
+          <div id="terminal" class="w-full h-full"></div>
+        </div>
+
+        <!-- System Load Statistics bar -->
+        <div class="border-t border-slate-800 bg-[#070b12] px-6 py-3 grid grid-cols-3 gap-2 text-[10px] font-mono shrink-0">
+          <div>
+            <span class="text-slate-500 block">CONTAINER CORE</span>
+            <span class="text-slate-300 font-semibold">wterm-WASM V2</span>
           </div>
-
-          <!-- Virtual Metrics Deck -->
-          <div class="border-t border-slate-800 bg-[#070b12] px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-            <div class="space-y-1">
-              <span class="text-slate-500 block">CONTAINER CORE</span>
-              <span id="stat-vm-type" class="text-slate-300 font-semibold">WebAssembly Sandbox</span>
-            </div>
-            <div class="space-y-1">
-              <span class="text-slate-500 block">LOCAL STATE</span>
-              <span id="stat-state" class="text-emerald-400 font-semibold flex items-center">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> Engine Standby
-              </span>
-            </div>
-            <div class="space-y-1">
-              <span class="text-slate-500 block">SOURCE SIZE</span>
-              <span id="stat-size" class="text-slate-300 font-semibold">0.0 KB</span>
-            </div>
-            <div class="space-y-1">
-              <span class="text-slate-500 block">SYSTEM LOAD</span>
-              <span id="stat-cpu" class="text-slate-300 font-semibold">0.1% CPU</span>
-            </div>
+          <div>
+            <span class="text-slate-500 block">LOCAL STATE</span>
+            <span class="text-emerald-400 font-semibold flex items-center">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span> SHELL ONLINE
+            </span>
           </div>
-        </section>
+          <div>
+            <span class="text-slate-500 block">SANDBOX ENGINE</span>
+            <span class="text-slate-300 font-semibold">Async Transpiler</span>
+          </div>
+        </div>
+      </section>
 
-      </div>
-    </main>
+    </div>
   </div>
 
-  <script is:inline define:vars={{ projectsList }}>
-    const PROJECTS = projectsList;
-    
+  <!-- Passive context transporter element -->
+  <div id="projects-data" data-projects={JSON.stringify(projectsList)} class="hidden"></div>
+
+  <!-- Load client libraries -->
+  <script>
+    import { WTerm } from "@wterm/dom";
+    import "@wterm/dom/css";
+    import { createIcons, Terminal, Code2, Folder, RefreshCw, Play, Trash2, Smartphone, Monitor, Github } from "lucide";
+
+    // Initialize UI Icons
+    createIcons({
+      icons: {
+        Terminal,
+        Code2,
+        Folder,
+        RefreshCw,
+        Play,
+        Trash2,
+        Smartphone,
+        Monitor,
+        Github
+      }
+    });
+
+    const PROJECTS = JSON.parse(document.getElementById("projects-data").getAttribute("data-projects"));
     let activeProjectId = PROJECTS.length > 0 ? PROJECTS[0].id : null;
-    let isRunning = false;
-    let pyodideInstance = null;
     let editorInstance = null;
     const modifiedCodes = {};
 
@@ -250,26 +248,103 @@ const projectsList = getProjects();
       modifiedCodes[p.id] = p.code;
     });
 
-    const projectListEl = document.getElementById('project-list');
-    const mobileSelectorEl = document.getElementById('mobile-project-selector');
-    const filenameEl = document.getElementById('editor-filename');
-    const badgeEl = document.getElementById('editor-badge');
-    const terminalEl = document.getElementById('terminal-body');
-    const btnRun = document.getElementById('btn-run');
-    const runText = document.getElementById('run-text');
-    const btnReset = document.getElementById('btn-reset');
-    const btnClear = document.getElementById('btn-clear');
-    
-    const statusDot = document.getElementById('runtime-status-dot');
-    const statusPulse = document.getElementById('runtime-status-pulse');
-    const statusText = document.getElementById('runtime-status-text');
+    // Mobile tabs handler
+    const tabExplorer = document.getElementById("tab-btn-explorer");
+    const tabEditor = document.getElementById("tab-btn-editor");
+    const tabTerminal = document.getElementById("tab-btn-terminal");
 
-    const statVmType = document.getElementById('stat-vm-type');
-    const statState = document.getElementById('stat-state');
-    const statSize = document.getElementById('stat-size');
-    const statCpu = document.getElementById('stat-cpu');
+    const sidebarExplorer = document.getElementById("sidebar-explorer");
+    const panelEditor = document.getElementById("panel-editor");
+    const panelTerminal = document.getElementById("panel-terminal");
 
-    // Self-healing Polling Loader for Monaco AMD Require structure
+    function switchMobileTab(tab) {
+      // Hide all panels on mobile
+      sidebarExplorer.classList.add("hidden");
+      panelEditor.classList.add("hidden");
+      panelTerminal.classList.add("hidden");
+
+      tabExplorer.classList.remove("border-indigo-500", "text-white");
+      tabExplorer.classList.add("border-transparent", "text-slate-400");
+      tabEditor.classList.remove("border-indigo-500", "text-white");
+      tabEditor.classList.add("border-transparent", "text-slate-400");
+      tabTerminal.classList.remove("border-indigo-500", "text-white");
+      tabTerminal.classList.add("border-transparent", "text-slate-400");
+
+      if (tab === "explorer") {
+        sidebarExplorer.classList.remove("hidden");
+        tabExplorer.classList.add("border-indigo-500", "text-white");
+        tabExplorer.classList.remove("border-transparent", "text-slate-400");
+      } else if (tab === "editor") {
+        panelEditor.classList.remove("hidden");
+        tabEditor.classList.add("border-indigo-500", "text-white");
+        tabEditor.classList.remove("border-transparent", "text-slate-400");
+        if (editorInstance) editorInstance.layout();
+      } else if (tab === "terminal") {
+        panelTerminal.classList.remove("hidden");
+        tabTerminal.classList.add("border-indigo-500", "text-white");
+        tabTerminal.classList.remove("border-transparent", "text-slate-400");
+      }
+    }
+
+    tabExplorer.addEventListener("click", () => switchMobileTab("explorer"));
+    tabEditor.addEventListener("click", () => switchMobileTab("editor"));
+    tabTerminal.addEventListener("click", () => switchMobileTab("terminal"));
+
+    // Set initial display configuration
+    if (window.innerWidth < 1024) {
+      switchMobileTab("explorer");
+    } else {
+      sidebarExplorer.classList.remove("hidden");
+      panelEditor.classList.remove("hidden");
+      panelTerminal.classList.remove("hidden");
+    }
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 1024) {
+        sidebarExplorer.classList.remove("hidden");
+        panelEditor.classList.remove("hidden");
+        panelTerminal.classList.remove("hidden");
+      } else {
+        switchMobileTab("explorer");
+      }
+    });
+
+    // Render Side Panel Project Explorer list
+    const fileSearch = document.getElementById("file-search");
+    function renderExplorer(filter = "") {
+      const listEl = document.getElementById("project-list");
+      listEl.innerHTML = PROJECTS.filter(p => p.title.toLowerCase().includes(filter.toLowerCase())).map(project => {
+        const isActive = project.id === activeProjectId;
+        return `
+          <button data-id="${project.id}" class="w-full text-left px-3 py-2.5 rounded transition flex flex-col space-y-1 cursor-pointer ${
+            isActive 
+              ? 'bg-indigo-600/15 border border-indigo-500/30 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] font-bold' 
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent font-medium'
+          }">
+            <div class="flex items-center justify-between w-full">
+              <span class="text-xs font-mono tracking-tight truncate max-w-[170px]">${project.filename}</span>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-950 text-slate-500 border border-slate-800 uppercase font-semibold">${project.badge}</span>
+            </div>
+            <span class="text-[10px] leading-relaxed text-slate-500 truncate w-full font-sans">${project.description}</span>
+          </button>
+        `;
+      }).join('');
+
+      listEl.querySelectorAll('button[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          switchProject(btn.getAttribute('data-id'));
+          if (window.innerWidth < 1024) {
+            switchMobileTab("editor");
+          }
+        });
+      });
+    }
+
+    fileSearch.addEventListener("input", (e) => {
+      renderExplorer(e.target.value);
+    });
+
+    // Monaco AMD Load & Config callback
     function loadMonaco(callback) {
       if (window.monaco) {
         callback();
@@ -285,82 +360,478 @@ const projectsList = getProjects();
       }
     }
 
-    function renderSidebar() {
-      if (!projectListEl) return;
-      projectListEl.innerHTML = PROJECTS.map(project => {
-        const isActive = project.id === activeProjectId;
-        return `
-          <button data-id="${project.id}" class="w-full text-left px-3.5 py-3 rounded-lg flex flex-col space-y-1 transition-all duration-150 cursor-pointer ${
-            isActive 
-              ? 'bg-indigo-600/15 border border-indigo-500/30 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] font-bold' 
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent font-medium'
-          }">
-            <div class="flex items-center justify-between w-full">
-              <span class="text-xs font-mono tracking-tight truncate max-w-[150px]">${project.title}</span>
-              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#0a0f1d] text-slate-500 border border-slate-800/60 uppercase font-semibold">${project.badge}</span>
-            </div>
-            <span class="text-[11px] leading-relaxed text-slate-500 truncate w-full font-sans">${project.description}</span>
-          </button>
-        `;
-      }).join('');
+    // Interactive Terminal Implementation (wterm Engine)
+    let term = null;
+    let shellInput = "";
+    let isProgramRunning = false;
+    let activeVM = null;
 
-      projectListEl.querySelectorAll('button[data-id]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          switchProject(btn.getAttribute('data-id'));
+    async function initTerminal() {
+      term = new WTerm(document.getElementById("terminal"), {
+        cols: 80,
+        rows: 24,
+        autoResize: true,
+        cursorBlink: true,
+        onData: (data) => {
+          if (isProgramRunning) {
+            if (activeVM) {
+              activeVM.handleKey(data);
+            }
+            return;
+          }
+
+          // Interactive CLI shell
+          for (let char of data) {
+            if (char === "\r" || char === "\n") {
+              term.write("\r\n");
+              executeShellCommand(shellInput.trim());
+              shellInput = "";
+              if (!isProgramRunning) {
+                term.write("guest@cli-playground:~$ ");
+              }
+            } else if (char === "\u007F" || char === "\b") { // Backspace
+              if (shellInput.length > 0) {
+                shellInput = shellInput.slice(0, -1);
+                term.write("\b \b");
+              }
+            } else {
+              shellInput += char;
+              term.write(char);
+            }
+          }
+        }
+      });
+
+      await term.init();
+      term.write("CLI Sandbox Interactive Shell [wterm v2.0]\r\n");
+      term.write("Type 'help' to display list of commands.\r\n\r\n");
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Shell Commands Execution dispatcher
+    function executeShellCommand(cmd) {
+      if (!cmd) return;
+
+      const args = cmd.split(" ");
+      const action = args[0].toLowerCase();
+
+      if (action === "help") {
+        term.write("Available system commands:\r\n");
+        term.write("  ls               - List project directory structure\r\n");
+        term.write("  cat <filename>   - View source file contents\r\n");
+        term.write("  run <filename>   - Compile/Interpret any project file\r\n");
+        term.write("  clear            - Clear workspace terminal screen\r\n");
+      } else if (action === "clear") {
+        term.write("\x1b[2J\x1b[H"); // ANSI Clear screen terminal code
+      } else if (action === "ls") {
+        term.write("Repository project tree:\r\n");
+        PROJECTS.forEach(p => {
+          term.write(`  \x1b[34m${p.folder}\x1b[0m/${p.filename} (${p.badge})\r\n`);
         });
-      });
+      } else if (action === "cat") {
+        if (args.length < 2) {
+          term.write("Usage: cat <filename>\r\n");
+          return;
+        }
+        const file = PROJECTS.find(p => p.filename.toLowerCase() === args[1].toLowerCase());
+        if (file) {
+          term.write(modifiedCodes[file.id].replace(/\n/g, "\r\n") + "\r\n");
+        } else {
+          term.write(`File [${args[1]}] not found in repository.\r\n`);
+        }
+      } else if (action === "run") {
+        if (args.length < 2) {
+          term.write("Usage: run <filename>\r\n");
+          return;
+        }
+        const file = PROJECTS.find(p => p.filename.toLowerCase() === args[1].toLowerCase());
+        if (file) {
+          launchProgram(file.id);
+        } else {
+          term.write(`File [${args[1]}] not found.\r\n`);
+        }
+      } else {
+        term.write(`Command [${action}] unrecognized. Type 'help' for instructions.\r\n`);
+      }
     }
 
-    function renderMobileSelector() {
-      if (!mobileSelectorEl) return;
-      mobileSelectorEl.innerHTML = PROJECTS.map(project => {
-        return `<option value="${project.id}" ${project.id === activeProjectId ? 'selected' : ''}>${project.title} [${project.badge}]</option>`;
-      }).join('');
+    // UniversalVM Interpreter Core Engine (Supports Python, C, Java)
+    class UniversalVM {
+      constructor(terminalInstance) {
+        this.term = terminalInstance;
+        this.isWaitingForInput = false;
+        this.inputResolver = null;
+        this.currentInput = "";
+      }
+
+      print(text) {
+        const formatted = String(text).replace(/\r?\n/g, "\r\n");
+        this.term.write(formatted);
+      }
+
+      async input(promptMsg = "") {
+        if (promptMsg) {
+          this.print(promptMsg);
+        }
+        this.isWaitingForInput = true;
+        this.currentInput = "";
+        return new Promise((resolve) => {
+          this.inputResolver = resolve;
+        });
+      }
+
+      handleKey(key) {
+        if (!this.isWaitingForInput) return;
+
+        if (key === "\r" || key === "\n") {
+          this.print("\r\n");
+          const result = this.currentInput;
+          this.isWaitingForInput = false;
+          this.currentInput = "";
+          if (this.inputResolver) {
+            this.inputResolver(result);
+          }
+        } else if (key === "\u007F" || key === "\b") { // Backspace
+          if (this.currentInput.length > 0) {
+            this.currentInput = this.currentInput.slice(0, -1);
+            this.term.write("\b \b");
+          }
+        } else {
+          this.currentInput += key;
+          this.term.write(key);
+        }
+      }
+
+      transpilePython(code) {
+        const lines = code.split('\n');
+        let jsCode = `
+          const random = {
+            randint: (a, b) => Math.floor(Math.random() * (b - a + 1)) + a,
+            sample: (arr, n) => {
+              let shuffled = [...arr].sort(() => 0.5 - Math.random());
+              return shuffled.slice(0, n);
+            }
+          };
+          const math = {
+            log: (x, base) => Math.log(x) / Math.log(base || Math.E),
+            log2: (x) => Math.log2(x)
+          };
+          const len = (x) => (x ? x.length : 0);
+          const round = (x) => Math.round(x);
+          const int = (x) => {
+            let v = parseInt(x);
+            if (isNaN(v)) throw new Error("ValueError: invalid literal for int()");
+            return v;
+          };
+          const str = (x) => String(x);
+          const exit = () => { throw new Error('EXIT_CALL'); };
+          
+          async function run() {
+        `;
+
+        let currentIndent = 0;
+
+        for (let line of lines) {
+          let trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#')) continue;
+
+          let spaces = line.match(/^([ \t]*)/)[0];
+          let indent = spaces.replace(/\t/g, '    ').length;
+
+          while (indent < currentIndent) {
+            jsCode += ' '.repeat(currentIndent) + '}\n';
+            currentIndent -= 4;
+          }
+
+          let statement = trimmed;
+          let endsWithColon = trimmed.endsWith(':');
+          if (endsWithColon) {
+            statement = trimmed.slice(0, -1).trim();
+          }
+
+          if (statement.startsWith('while ')) {
+            let cond = statement.substring(6).trim();
+            if (cond === 'True') cond = 'true';
+            statement = `while (${cond}) {`;
+            currentIndent += 4;
+          } else if (statement.startsWith('if ')) {
+            let cond = statement.substring(3).trim();
+            cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
+            statement = `if (${cond}) {`;
+            currentIndent += 4;
+          } else if (statement.startsWith('elif ')) {
+            let cond = statement.substring(5).trim();
+            cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
+            statement = `} else if (${cond}) {`;
+          } else if (statement === 'else') {
+            statement = `} else {`;
+          } else if (statement === 'try') {
+            statement = `try {`;
+            currentIndent += 4;
+          } else if (statement.startsWith('except')) {
+            statement = `} catch (err) {`;
+          } else if (statement.startsWith('def ')) {
+            let sig = statement.substring(4).trim();
+            statement = `async function ${sig} {`;
+            currentIndent += 4;
+          } else if (statement.startsWith('for ') && statement.includes(' in range(')) {
+            let loopParts = statement.substring(4).split(' in range(');
+            let varName = loopParts[0].trim();
+            let rangeArgs = loopParts[1].slice(0, -1).split(',');
+            let start = "0", end = "0", step = "1";
+            if (rangeArgs.length === 1) {
+              end = rangeArgs[0].trim();
+            } else if (rangeArgs.length === 2) {
+              start = rangeArgs[0].trim();
+              end = rangeArgs[1].trim();
+            } else if (rangeArgs.length === 3) {
+              start = rangeArgs[0].trim();
+              end = rangeArgs[1].trim();
+              step = rangeArgs[2].trim();
+            }
+            statement = `for (let ${varName} = ${start}; ${varName} < ${end}; ${varName} += ${step}) {`;
+            currentIndent += 4;
+          } else {
+            if (statement.startsWith('print(')) {
+              let inner = statement.substring(6, statement.length - 1).trim();
+              if (inner.startsWith('f"') || inner.startsWith("f'")) {
+                let content = inner.substring(2, inner.length - 1);
+                content = content.replace(/\{([^}]+)\}/g, '${$1}');
+                statement = `print(\`${content}\\n\`);`;
+              } else {
+                statement = `print(${inner} + '\\n');`;
+              }
+            } else if (statement.startsWith('input(')) {
+              let inner = statement.substring(6, statement.length - 1).trim();
+              statement = `await input(${inner});`;
+            } else {
+              if (statement.includes(' = ') && !statement.startsWith('let ') && !statement.startsWith('var ') && !statement.startsWith('const ')) {
+                let left = statement.split(' = ')[0].trim();
+                if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(left)) {
+                  statement = `let ${statement}`;
+                }
+              }
+              statement = statement.replace(/\bmath\.log\(/g, 'math.log(');
+              statement = statement.replace(/\bmath\.log2\(/g, 'math.log2(');
+              statement = statement.replace(/\bfloat\(/g, 'parseFloat(');
+              statement = statement.replace(/\bint\(/g, 'int(');
+              statement = statement.replace(/\bexit\(\)/g, 'exit()');
+              statement = statement + ';';
+            }
+          }
+
+          jsCode += ' '.repeat(indent + 4) + statement + '\n';
+        }
+
+        while (currentIndent > 0) {
+          jsCode += ' '.repeat(currentIndent) + '}\n';
+          currentIndent -= 4;
+        }
+
+        jsCode += `
+          }
+          await run();
+        `;
+        return jsCode;
+      }
+
+      transpileC(code) {
+        const lines = code.split('\n');
+        let jsCode = `
+          async function run() {
+            let user_input = 0;
+        `;
+
+        for (let line of lines) {
+          let trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith('#include') || trimmed.startsWith('int main') || trimmed.startsWith('return 0') || trimmed === '}' || trimmed === '{') {
+            continue;
+          }
+
+          let statement = trimmed;
+          if (trimmed.startsWith('printf(')) {
+            let inner = trimmed.substring(7, trimmed.indexOf(');')).trim();
+            if (inner.includes(',')) {
+              let commaIndex = inner.indexOf(',');
+              let formatStr = inner.substring(0, commaIndex).trim();
+              formatStr = formatStr.substring(1, formatStr.length - 1);
+              let vars = inner.substring(commaIndex + 1).split(',').map(v => v.trim());
+              let i = 0;
+              let formatted = formatStr.replace(/%d/g, () => `\${${vars[i++]}}`);
+              statement = `print(\`${formatted}\`);`;
+            } else {
+              statement = `print(${inner});`;
+            }
+          } else if (trimmed.startsWith('scanf(')) {
+            let inner = trimmed.substring(6, trimmed.indexOf(');'));
+            let parts = inner.split(',');
+            let varName = parts[1].replace('&', '').trim();
+            statement = `${varName} = parseInt(await input(""));`;
+          } else if (trimmed.startsWith('int ')) {
+            statement = 'let ' + trimmed.substring(4);
+          } else if (trimmed.startsWith('for (int ')) {
+            statement = 'for (let ' + trimmed.substring(9);
+          }
+
+          jsCode += "    " + statement + "\n";
+        }
+
+        jsCode += `
+          }
+          await run();
+        `;
+        return jsCode;
+      }
+
+      transpileJava(code) {
+        const lines = code.split('\n');
+        let jsCode = `
+          const check = (val) => {
+            if (!val) return false;
+            for (let c of val) {
+              if (c < '0' || c > '9') return false;
+            }
+            return true;
+          };
+          const user_input = async () => {
+            return await input("");
+          };
+
+          async function run() {
+        `;
+
+        let inMain = false;
+        for (let line of lines) {
+          let trimmed = line.trim();
+          if (trimmed.includes('public static void main')) {
+            inMain = true;
+            continue;
+          }
+          if (inMain && trimmed === '}') {
+            inMain = false;
+            continue;
+          }
+          if (!inMain) continue;
+
+          let statement = trimmed;
+          if (trimmed.startsWith('System.out.println(')) {
+            let inner = trimmed.substring(19, trimmed.indexOf(');'));
+            statement = `print(${inner} + "\\n");`;
+          } else if (trimmed.startsWith('System.out.print(')) {
+            let inner = trimmed.substring(17, trimmed.indexOf(');'));
+            statement = `print(${inner});`;
+          } else if (trimmed.startsWith('String ')) {
+            statement = 'let ' + trimmed.substring(7);
+          } else if (trimmed.startsWith('int ')) {
+            statement = 'let ' + trimmed.substring(4);
+          } else if (trimmed.startsWith('Scanner ')) {
+            continue;
+          } else if (trimmed.startsWith('for (int ')) {
+            statement = 'for (let ' + trimmed.substring(9);
+          }
+
+          jsCode += "    " + statement + "\n";
+        }
+
+        jsCode += `
+          }
+          await run();
+        `;
+        return jsCode;
+      }
+
+      async execute(code, lang) {
+        let jsSource = "";
+        try {
+          if (lang === "python") {
+            jsSource = this.transpilePython(code);
+          } else if (lang === "c") {
+            jsSource = this.transpileC(code);
+          } else if (lang === "java") {
+            jsSource = this.transpileJava(code);
+          } else {
+            throw new Error("Unsupported compilation target: " + lang);
+          }
+
+          const context = {
+            print: this.print.bind(this),
+            input: this.input.bind(this)
+          };
+
+          const runner = new Function("context", `
+            with(context) {
+              return (async () => {
+                ${jsSource}
+              })();
+            }
+          `);
+
+          await runner(context);
+        } catch (err) {
+          if (err.message !== 'EXIT_CALL') {
+            this.print(`\r\n[VM EXCEPTION] ${err.message}\r\n`);
+          }
+        }
+      }
     }
 
-    if (mobileSelectorEl) {
-      mobileSelectorEl.addEventListener('change', (e) => {
-        switchProject(e.target.value);
-      });
-    }
+    // Launch Program Runner wrapper
+    async function launchProgram(id) {
+      const p = PROJECTS.find(proj => proj.id === id);
+      if (!p) return;
 
-    function switchProject(id) {
-      if (isRunning) {
-        writeToTerminal("\n[System Alert] A program is currently running. Please let it finish or wait.\n", "error");
+      if (isProgramRunning) {
+        term.write("\r\n[Alert] A program is already executing. Kill process first.\r\n");
         return;
       }
+
+      isProgramRunning = true;
+      activeVM = new UniversalVM(term);
+
+      if (window.innerWidth < 1024) {
+        switchMobileTab("terminal");
+      }
+
+      term.write(`\x1b[32m[Executing ${p.filename} via VM...]\x1b[0m\r\n`);
+      const codeToRun = editorInstance ? editorInstance.getValue() : modifiedCodes[id];
       
+      await activeVM.execute(codeToRun, p.lang);
+      
+      term.write(`\r\n\x1b[32m[Program finished execution]\x1b[0m\r\n`);
+      isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Workstation switch project project loading
+    function switchProject(id) {
+      if (isProgramRunning) {
+        term.write("\r\n[Alert] Cannot switch workspace while program is running.\r\n");
+        return;
+      }
+
       if (editorInstance && activeProjectId) {
         modifiedCodes[activeProjectId] = editorInstance.getValue();
       }
 
       activeProjectId = id;
-      const project = PROJECTS.find(p => p.id === id);
-      if (!project) return;
+      const p = PROJECTS.find(proj => proj.id === id);
+      if (!p) return;
 
-      filenameEl.textContent = `File: ${project.file}`;
-      badgeEl.textContent = project.badge;
-      
-      const targetCode = modifiedCodes[id];
-      const codeSizeKb = (new Blob([targetCode]).size / 1024).toFixed(2);
-      statSize.textContent = `${codeSizeKb} KB`;
+      document.getElementById("editor-filename").textContent = p.file;
+      document.getElementById("editor-badge").textContent = p.badge;
 
-      statVmType.textContent = project.lang === "python" ? "Pyodide WASM" : "WASM Offline View";
-      
-      renderSidebar();
-      renderMobileSelector();
-      clearTerminal();
-      writeToTerminal(`[Ready] System workspace loaded for: ${project.filename}.\nPress "Run Program" to execute.\n`, "system");
+      renderExplorer(fileSearch.value);
 
       loadMonaco(() => {
-        const mappedLang = project.lang === 'c' ? 'cpp' : project.lang;
+        const langMap = p.lang === 'c' ? 'cpp' : p.lang;
         if (editorInstance) {
-          editorInstance.setValue(targetCode);
-          monaco.editor.setModelLanguage(editorInstance.getModel(), mappedLang);
+          editorInstance.setValue(modifiedCodes[id]);
+          monaco.editor.setModelLanguage(editorInstance.getModel(), langMap);
         } else {
-          editorInstance = monaco.editor.create(document.getElementById('editor-container'), {
-            value: targetCode,
-            language: mappedLang,
+          editorInstance = monaco.editor.create(document.getElementById("editor-container"), {
+            value: modifiedCodes[id],
+            language: langMap,
             theme: 'vs-dark',
             automaticLayout: true,
             fontFamily: 'Fira Code, monospace',
@@ -375,177 +846,35 @@ const projectsList = getProjects();
       });
     }
 
-    function writeToTerminal(text, type = "default") {
-      const span = document.createElement('span');
-      if (type === "error") {
-        span.className = "text-rose-400 font-mono block whitespace-pre-wrap";
-      } else if (type === "system") {
-        span.className = "text-indigo-400 font-mono font-semibold block whitespace-pre-wrap";
-      } else {
-        span.className = "text-slate-200 font-mono block whitespace-pre-wrap";
-      }
-      span.textContent = text;
-      terminalEl.appendChild(span);
-      terminalEl.scrollTop = terminalEl.scrollHeight;
-    }
-
-    function clearTerminal() {
-      terminalEl.innerHTML = "";
-    }
-
-    btnClear.addEventListener('click', clearTerminal);
-
-    function updateEngineStatus(state) {
-      if (state === "starting") {
-        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
-        statusPulse.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
-        statusText.textContent = "WASM Engine: Starting...";
-        statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse mr-1.5"></span> Starting';
-      } else if (state === "active") {
-        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
-        statusPulse.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
-        statusText.textContent = "WASM Engine: Active";
-        statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-emerald-400 mr-1.5"></span> Active';
-        statCpu.textContent = "0.1% CPU";
-      } else if (state === "executing") {
-        statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse mr-1.5"></span> Executing';
-        statCpu.textContent = "35.2% CPU";
-      } else if (state === "offline") {
-        statusDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500";
-        statusPulse.className = "";
-        statusText.textContent = "WASM Engine: Offline";
-        statState.innerHTML = '<span class="h-1.5 w-1.5 rounded-full bg-rose-500 mr-1.5"></span> Failed';
-        statCpu.textContent = "0.0% CPU";
-      }
-    }
-
-    async function initPyodide() {
-      if (pyodideInstance) return pyodideInstance;
-      
-      updateEngineStatus("starting");
-      writeToTerminal("Loading Pyodide browser-runtime core...\n", "system");
-      
-      try {
-        pyodideInstance = await loadPyodide({
-          indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"
-        });
-        
-        pyodideInstance.setStdout({
-          write: (text) => {
-            writeToTerminal(text);
-            return text.length;
-          }
-        });
-
-        pyodideInstance.setStderr({
-          write: (text) => {
-            writeToTerminal(text, "error");
-            return text.length;
-          }
-        });
-
-        await pyodideInstance.runPythonAsync(`
-import builtins
-import sys
-import js
-
-def web_input(prompt_msg=""):
-    if prompt_msg:
-        sys.stdout.write(prompt_msg)
-        sys.stdout.flush()
-    val = js.prompt(prompt_msg or "CLI Input Required:")
-    if val is None:
-        val = "exit"
-    else:
-        sys.stdout.write(val + "\\n")
-        sys.stdout.flush()
-    return val
-
-builtins.input = web_input
-`);
-
-        updateEngineStatus("active");
-        writeToTerminal("WASM standard runtime initialized successfully.\n\n", "system");
-        return pyodideInstance;
-      } catch (err) {
-        updateEngineStatus("offline");
-        writeToTerminal(`Failed to initialize WebAssembly sandbox: ${err.message}\n`, "error");
-        throw err;
-      }
-    }
-
-    btnRun.addEventListener('click', async () => {
-      if (isRunning) return;
-
-      const currentProject = PROJECTS.find(p => p.id === activeProjectId);
-      if (!currentProject) return;
-
-      const currentCode = editorInstance ? editorInstance.getValue() : modifiedCodes[activeProjectId];
-
-      isRunning = true;
-      btnRun.disabled = true;
-      btnRun.classList.add('opacity-75', 'cursor-not-allowed');
-      runText.textContent = "Executing...";
-
-      try {
-        if (currentProject.lang !== "python") {
-          clearTerminal();
-          writeToTerminal(`[Compilation Notice] Direct browser runtime is disabled for compiled code (${currentProject.badge}).\n\n`, "system");
-          writeToTerminal(`To compile and run this code locally, run:\n`, "default");
-          if (currentProject.lang === "c") {
-            writeToTerminal(`  gcc ${currentProject.filename} -o app && ./app\n\n`, "default");
-          } else if (currentProject.lang === "java") {
-            writeToTerminal(`  javac ${currentProject.filename} && java ${currentProject.filename.replace('.java', '')}\n\n`, "default");
-          }
-          writeToTerminal(`Feel free to edit the source code inside this IDE window. Your changes are automatically stored in-memory!\n`, "system");
-          return;
-        }
-
-        clearTerminal();
-        writeToTerminal(`[Initializing Execution Environment]\n`, "system");
-        const py = await initPyodide();
-        
-        updateEngineStatus("executing");
-        await py.runPythonAsync(currentCode);
-        writeToTerminal("\n[Program completed execution]\n", "system");
-      } catch (err) {
-        const errMsg = err.message || String(err);
-        if (errMsg.includes("SystemExit")) {
-          writeToTerminal("\n[Program exited successfully]\n", "system");
-        } else {
-          writeToTerminal(`\n[Runtime Exception]\n${errMsg}\n`, "error");
-        }
-      } finally {
-        isRunning = false;
-        btnRun.disabled = false;
-        btnRun.classList.remove('opacity-75', 'cursor-not-allowed');
-        runText.textContent = "Run Program";
-        updateEngineStatus("active");
+    // Toolbar Action Listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      if (activeProjectId) {
+        launchProgram(activeProjectId);
       }
     });
 
-    btnReset.addEventListener('click', () => {
-      if (confirm("Reset editor to default repository version? All unsaved modifications will be lost.")) {
-        const project = PROJECTS.find(p => p.id === activeProjectId);
-        if (project) {
-          modifiedCodes[activeProjectId] = project.code;
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      if (confirm("Revert file to origin repository version?")) {
+        const p = PROJECTS.find(proj => proj.id === activeProjectId);
+        if (p) {
+          modifiedCodes[activeProjectId] = p.code;
           if (editorInstance) {
-            editorInstance.setValue(project.code);
+            editorInstance.setValue(p.code);
           }
-          const codeSizeKb = (new Blob([project.code]).size / 1024).toFixed(2);
-          statSize.textContent = `${codeSizeKb} KB`;
-          writeToTerminal(`\n[System Workspace] Code reverted to build default.\n`, "system");
         }
       }
     });
 
-    window.addEventListener('DOMContentLoaded', () => {
-      lucide.createIcons();
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Lifecycle Init
+    window.addEventListener("DOMContentLoaded", () => {
+      renderExplorer();
+      initTerminal();
       if (PROJECTS.length > 0) {
         switchProject(PROJECTS[0].id);
-      } else {
-        filenameEl.textContent = "No Projects Found";
-        writeToTerminal("Error: No compatible source code projects detected in repository structure.\n", "error");
       }
     });
   </script>

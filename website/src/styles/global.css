@@ -7,23 +7,35 @@
   }
 }
 
-.scanlines {
-  position: relative;
-  overflow: hidden;
+/* Custom terminal integration for wterm */
+.wterm-container {
+  font-family: 'Fira Code', monospace;
+  background-color: #030712;
+  color: #f3f4f6;
+  padding: 1rem;
 }
 
-.scanlines::before {
-  content: " ";
-  display: block;
-  position: absolute;
-  top: 0; left: 0; bottom: 0; right: 0;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-  z-index: 10;
-  background-size: 100% 4px, 6px 100%;
-  pointer-events: none;
+#terminal {
+  --term-bg: #030712;
+  --term-fg: #f3f4f6;
+  --term-color-0: #1f2937;
+  --term-color-1: #ef4444;
+  --term-color-2: #10b981;
+  --term-color-3: #f59e0b;
+  --term-color-4: #3b82f6;
+  --term-color-5: #8b5cf6;
+  --term-color-6: #06b6d4;
+  --term-color-7: #d1d5db;
+  --term-color-8: #4b5563;
+  --term-color-9: #f87171;
+  --term-color-10: #34d399;
+  --term-color-11: #fbbf24;
+  --term-color-12: #60a5fa;
+  --term-color-13: #a78bfa;
+  --term-color-14: #22d3ee;
+  --term-color-15: #f9fafb;
 }
 
-/* Custom Gutter & Editor Scrollbars */
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
   height: 6px;
