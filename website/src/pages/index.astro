@@ -1,9 +1,12 @@
 ---
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import '../styles/global.css';
 
-const rootDir = path.resolve(process.cwd(), '..');
+// Always resolve paths relative to this file's compile path, avoiding process.cwd discrepancies
+const currentFileDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(currentFileDir, '..', '..', '..');
 
 function getProjects() {
   const projects = [];
@@ -65,7 +68,7 @@ const projectsList = getProjects();
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CLI Projects - WebAssembly Playground</title>
   <script is:inline src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
-  <!-- Load Monaco Editor -->
+  <!-- Load Monaco Editor AMD Loader -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
   <!-- Load Lucide Icons -->
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.400.0/dist/umd/lucide.min.js"></script>
@@ -75,7 +78,7 @@ const projectsList = getProjects();
 </head>
 <body class="bg-[#090d16] text-[#e6edf3] font-['Plus_Jakarta_Sans',sans-serif] min-h-screen flex flex-col antialiased select-none">
 
-  <!-- Interactive Header -->
+  <!-- Header -->
   <header class="border-b border-slate-800 bg-[#0d111a]/90 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-50">
     <div class="flex items-center space-x-3">
       <div class="p-2 bg-indigo-600/10 rounded-lg border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
@@ -105,10 +108,10 @@ const projectsList = getProjects();
     </div>
   </header>
 
-  <!-- Responsive Layout container -->
+  <!-- Split Screen Workspace Structure -->
   <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
     
-    <!-- Left Sidebar - Desktop only -->
+    <!-- Projects Selection Sidebar -->
     <aside class="hidden md:flex w-80 border-r border-slate-800 bg-[#0d111a]/40 flex-col overflow-y-auto">
       <div class="p-4 border-b border-slate-800 flex items-center justify-between">
         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Dynamic Project Index</span>
@@ -119,10 +122,10 @@ const projectsList = getProjects();
       </div>
     </aside>
 
-    <!-- Main Working Layout -->
+    <!-- Coding and Execution Panel Grid -->
     <main class="flex-1 flex flex-col overflow-hidden bg-[#090d16]">
       
-      <!-- Responsive Mobile selector bar -->
+      <!-- Responsive Mobile Selector -->
       <div class="md:hidden p-4 border-b border-slate-800 bg-[#0d111a]/60 flex flex-col gap-3">
         <div>
           <label for="mobile-project-selector" class="block text-xs font-semibold uppercase text-slate-500 tracking-wider mb-2">Select Project</label>
@@ -151,8 +154,8 @@ const projectsList = getProjects();
           </div>
           
           <!-- Full Featured Monaco IDE Integration container -->
-          <div class="flex-1 p-4 bg-[#0d111a]/10 relative overflow-hidden min-h-0">
-            <div id="editor-container" class="w-full h-full rounded-xl border border-slate-800/80 overflow-hidden"></div>
+          <div class="flex-1 p-4 bg-[#0d111a]/10 relative overflow-hidden min-h-[300px] lg:min-h-0">
+            <div id="editor-container" class="w-full h-full rounded-xl border border-slate-800/80 overflow-hidden min-h-[300px]"></div>
           </div>
           
           <!-- Editor Bottom Toolbar -->
@@ -240,7 +243,21 @@ const projectsList = getProjects();
     const statSize = document.getElementById('stat-size');
     const statCpu = document.getElementById('stat-cpu');
 
-    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+    // Self-healing Polling Loader for Monaco AMD Require structure
+    function loadMonaco(callback) {
+      if (window.monaco) {
+        callback();
+        return;
+      }
+      if (window.require) {
+        require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+          callback();
+        });
+      } else {
+        setTimeout(() => loadMonaco(callback), 50);
+      }
+    }
 
     function renderSidebar() {
       if (!projectListEl) return;
@@ -302,13 +319,19 @@ const projectsList = getProjects();
       const codeSizeKb = (new Blob([targetCode]).size / 1024).toFixed(2);
       statSize.textContent = `${codeSizeKb} KB`;
 
-      if (editorInstance) {
-        editorInstance.setValue(targetCode);
+      statVmType.textContent = project.lang === "python" ? "Pyodide WASM" : "WASM Offline View";
+      
+      renderSidebar();
+      renderMobileSelector();
+      clearTerminal();
+      writeToTerminal(`[Ready] System workspace loaded for: ${project.filename}.\nPress "Run Program" to execute.\n`, "system");
+
+      loadMonaco(() => {
         const mappedLang = project.lang === 'c' ? 'cpp' : project.lang;
-        monaco.editor.setModelLanguage(editorInstance.getModel(), mappedLang);
-      } else {
-        require(['vs/editor/editor.main'], function () {
-          const mappedLang = project.lang === 'c' ? 'cpp' : project.lang;
+        if (editorInstance) {
+          editorInstance.setValue(targetCode);
+          monaco.editor.setModelLanguage(editorInstance.getModel(), mappedLang);
+        } else {
           editorInstance = monaco.editor.create(document.getElementById('editor-container'), {
             value: targetCode,
             language: mappedLang,
@@ -322,15 +345,8 @@ const projectsList = getProjects();
               horizontal: 'visible'
             }
           });
-        });
-      }
-
-      statVmType.textContent = project.lang === "python" ? "Pyodide WASM" : "WASM Offline View";
-      
-      renderSidebar();
-      renderMobileSelector();
-      clearTerminal();
-      writeToTerminal(`[Ready] System workspace loaded for: ${project.filename}.\nPress "Run Program" to execute.\n`, "system");
+        }
+      });
     }
 
     function writeToTerminal(text, type = "default") {
