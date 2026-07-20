@@ -1,12 +1,38 @@
 ---
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import '../styles/global.css';
 
-// Always resolve paths relative to this file's compile path, avoiding process.cwd discrepancies
-const currentFileDir = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(currentFileDir, '..', '..', '..');
+function getRootDir() {
+  const cwd = process.cwd();
+  
+  // 1. Check if cwd itself has 'Character-Counter' (we are running from repo root)
+  if (fs.existsSync(path.join(cwd, 'Character-Counter'))) {
+    return cwd;
+  }
+  
+  // 2. Check if we are inside 'website' and the parent has 'Character-Counter'
+  const parentPath = path.resolve(cwd, '..');
+  if (fs.existsSync(path.join(parentPath, 'Character-Counter'))) {
+    return parentPath;
+  }
+  
+  // 3. General upward recursive scan
+  let dir = cwd;
+  for (let i = 0; i < 6; i++) {
+    if (fs.existsSync(path.join(dir, 'Character-Counter'))) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  
+  // Fallback to process.cwd()
+  return cwd;
+}
+
+const rootDir = getRootDir();
 
 function getProjects() {
   const projects = [];
