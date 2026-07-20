@@ -9,7 +9,10 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^5.2.0"
+    "@wterm/core": "^0.3.0",
+    "@wterm/dom": "^0.3.0",
+    "astro": "^5.2.0",
+    "lucide": "^0.400.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
