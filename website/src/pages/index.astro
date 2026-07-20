@@ -42,7 +42,21 @@ function getProjects() {
     
     if (stat.isDirectory()) {
       const files = fs.readdirSync(itemPath);
+      
+      // Locate README.md (case-insensitive) inside the project folder
+      let readme = '';
+      const readmeFile = files.find(f => f.toLowerCase() === 'readme.md');
+      if (readmeFile) {
+        try {
+          readme = fs.readFileSync(path.join(itemPath, readmeFile), 'utf-8');
+        } catch (e) {
+          readme = '';
+        }
+      }
+
       for (const file of files) {
+        if (file.toLowerCase() === 'readme.md') continue; // Skip including README as a runnable project
+        
         const filePath = path.join(itemPath, file);
         const fileStat = fs.statSync(filePath);
         if (fileStat.isFile()) {
@@ -71,7 +85,8 @@ function getProjects() {
             badge,
             file: `${item}/${file}`,
             description,
-            code
+            code,
+            readme
           });
         }
       }
@@ -97,7 +112,7 @@ const projectsList = getProjects();
 <body class="bg-[#090d16] text-[#e6edf3] font-['Plus_Jakarta_Sans',sans-serif] h-full flex flex-col antialiased select-none">
 
   <!-- Header -->
-  <header class="border-b border-slate-800 bg-[#0d111a]/95 backdrop-blur px-6 py-4 flex items-center justify-between z-50 shrink-0">
+  <header class="border-b border-slate-800 bg-[#0d111a]/95 backdrop-blur px-6 py-4 flex items-center justify-between z-40 shrink-0">
     <div class="flex items-center space-x-3">
       <div class="p-2 bg-indigo-600/10 rounded-lg border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]">
         <i data-lucide="terminal" class="w-6 h-6 text-indigo-400"></i>
@@ -110,8 +125,13 @@ const projectsList = getProjects();
       </div>
     </div>
     
-    <div class="flex items-center space-x-4">
-      <a href="https://github.com/godwin-binoy/cli-beginer-projects" target="_blank" class="flex items-center space-x-2 text-xs text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-lg transition-all duration-200">
+    <div class="flex items-center space-x-2">
+      <!-- Compiler Options Information modal trigger -->
+      <button id="btn-compiler-modal" class="flex items-center space-x-2 text-xs text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-lg transition-all duration-200 cursor-pointer">
+        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+        <span class="font-medium">Get Compilers</span>
+      </button>
+      <a href="https://github.com/godwin-binoy/cli-beginer-projects" target="_blank" class="hidden sm:flex items-center space-x-2 text-xs text-slate-400 hover:text-white bg-slate-900/60 hover:bg-slate-800 border border-slate-800 px-3 py-1.5 rounded-lg transition-all duration-200">
         <i data-lucide="github" class="w-4 h-4"></i>
         <span class="font-medium font-mono">Repository</span>
       </a>
@@ -119,7 +139,7 @@ const projectsList = getProjects();
   </header>
 
   <!-- Mobile Tab Navigation Bar (Visible only on Mobile) -->
-  <div class="lg:hidden flex border-b border-slate-800 bg-[#0d111a] shrink-0">
+  <div class="lg:hidden flex border-b border-slate-800 bg-[#0d111a] shrink-0 z-40">
     <button id="tab-btn-explorer" class="flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5">
       <i data-lucide="folder" class="w-4 h-4"></i> Explorer
     </button>
@@ -135,12 +155,12 @@ const projectsList = getProjects();
   <div class="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
     
     <!-- Redesigned Repository Map / File Explorer -->
-    <aside id="sidebar-explorer" class="w-full lg:w-72 border-r border-slate-800 bg-[#0d111a]/40 flex flex-col h-full lg:flex overflow-y-auto">
-      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+    <aside id="sidebar-explorer" class="w-full lg:w-72 border-r border-slate-800 bg-[#0d111a]/40 flex flex-col h-full overflow-y-auto">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between shrink-0">
         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Repository Map</span>
         <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">{projectsList.length} files</span>
       </div>
-      <div class="p-3 border-b border-slate-800 bg-[#0c1018]">
+      <div class="p-3 border-b border-slate-800 bg-[#0c1018] shrink-0">
         <input type="text" id="file-search" placeholder="Search files..." class="w-full bg-slate-950 text-slate-300 border border-slate-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition-colors" />
       </div>
       <div id="project-list" class="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
@@ -149,26 +169,46 @@ const projectsList = getProjects();
     </aside>
 
     <!-- Main Workspace (Editor + Terminal Panels) -->
-    <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
+    <div id="main-workspace" class="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
       
       <!-- Interactive Code Editor Panel -->
       <section id="panel-editor" class="hidden lg:flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden h-full">
-        <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
+        <!-- Panel Header -->
+        <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between shrink-0">
           <div class="flex items-center space-x-2">
             <i data-lucide="code-2" class="w-4 h-4 text-indigo-400"></i>
             <span id="editor-filename" class="text-sm font-semibold font-mono text-slate-300">Loading Workspace...</span>
             <span id="editor-badge" class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">CODE</span>
           </div>
           
-          <button id="btn-reset" class="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 px-2.5 py-1.5 rounded transition duration-150">
+          <button id="btn-reset" class="flex items-center space-x-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 border border-slate-800 hover:border-slate-700 px-2.5 py-1.5 rounded transition duration-150 cursor-pointer">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
             <span>Reset</span>
           </button>
         </div>
+
+        <!-- Tab controls under Editor Header -->
+        <div class="flex border-b border-slate-800 bg-[#0d111a]/45 shrink-0">
+          <button id="editor-tab-code" class="px-4 py-2 text-xs font-semibold border-r border-slate-800 border-b-2 border-indigo-500 text-white flex items-center space-x-1.5 cursor-pointer">
+            <i data-lucide="code-2" class="w-3.5 h-3.5"></i>
+            <span>Code Editor</span>
+          </button>
+          <button id="editor-tab-readme" class="px-4 py-2 text-xs font-semibold border-r border-slate-800 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+            <span>README Preview</span>
+          </button>
+        </div>
         
-        <!-- Monaco Container -->
-        <div class="flex-1 p-3 bg-[#0d111a]/10 relative overflow-hidden min-h-0">
+        <!-- Monaco Editor Container -->
+        <div id="editor-view-container" class="flex-1 p-3 bg-[#0d111a]/10 relative overflow-hidden min-h-0 flex flex-col">
           <div id="editor-container" class="w-full h-full rounded border border-slate-800/80 overflow-hidden"></div>
+        </div>
+
+        <!-- Markdown Document View -->
+        <div id="readme-view-container" class="hidden flex-1 p-5 bg-[#0b0f19] relative overflow-y-auto scrollbar-thin">
+          <div id="readme-content" class="text-slate-300 text-sm leading-relaxed space-y-4">
+            <!-- Parsed markdown goes here -->
+          </div>
         </div>
         
         <!-- Editor Bottom Actions -->
@@ -218,6 +258,71 @@ const projectsList = getProjects();
     </div>
   </div>
 
+  <!-- Setup Lightweight Compiler Instructions Modal -->
+  <div id="compiler-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-[#0d111a] border border-slate-800 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <i data-lucide="download" class="w-5 h-5 text-emerald-400"></i>
+          <h3 class="text-base font-bold text-white">Setup Local Compilers</h3>
+        </div>
+        <button id="close-compiler-modal" class="text-slate-400 hover:text-white transition cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto space-y-6 scrollbar-thin text-sm text-slate-300">
+        <div>
+          <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">GitHub Codespaces / Debian / Ubuntu</h4>
+          <p class="text-xs text-slate-400 mb-3">Copy and paste these commands into your Codespace terminal to install fast, lightweight runtimes:</p>
+          
+          <div class="space-y-3">
+            <div>
+              <div class="flex items-center justify-between text-xs font-mono text-slate-400 bg-slate-950 px-3 py-1.5 rounded-t border-t border-x border-slate-800">
+                <span>Tiny C Compiler (TCC) - Sub-1MB rapid compiler</span>
+                <button class="btn-copy text-indigo-400 hover:text-indigo-300 cursor-pointer text-[11px]" data-copy="sudo apt-get update && sudo apt-get install -y tcc">Copy</button>
+              </div>
+              <pre class="bg-slate-950 p-3 rounded-b border-b border-x border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">sudo apt-get update && sudo apt-get install -y tcc</pre>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between text-xs font-mono text-slate-400 bg-slate-950 px-3 py-1.5 rounded-t border-t border-x border-slate-800">
+                <span>Python 3 Interpreter</span>
+                <button class="btn-copy text-indigo-400 hover:text-indigo-300 cursor-pointer text-[11px]" data-copy="sudo apt-get update && sudo apt-get install -y python3">Copy</button>
+              </div>
+              <pre class="bg-slate-950 p-3 rounded-b border-b border-x border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">sudo apt-get update && sudo apt-get install -y python3</pre>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between text-xs font-mono text-slate-400 bg-slate-950 px-3 py-1.5 rounded-t border-t border-x border-slate-800">
+                <span>Java JDK Runtime (Headless)</span>
+                <button class="btn-copy text-indigo-400 hover:text-indigo-300 cursor-pointer text-[11px]" data-copy="sudo apt-get update && sudo apt-get install -y default-jdk-headless">Copy</button>
+              </div>
+              <pre class="bg-slate-950 p-3 rounded-b border-b border-x border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">sudo apt-get update && sudo apt-get install -y default-jdk-headless</pre>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Windows (Using Chocolatey Package Manager)</h4>
+          <pre class="bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">choco install python tcc openjdk</pre>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">macOS (Using Homebrew Package Manager)</h4>
+          <pre class="bg-slate-950 p-3 rounded border border-slate-800 text-xs font-mono text-emerald-400 overflow-x-auto">brew install python gcc openjdk</pre>
+        </div>
+      </div>
+      
+      <!-- Modal Footer -->
+      <div class="p-5 border-t border-slate-800 bg-[#0c0f17] flex justify-end shrink-0">
+        <button id="btn-close-compiler-modal-footer" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold cursor-pointer">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Passive context transporter element -->
   <div id="projects-data" data-projects={JSON.stringify(projectsList)} class="hidden"></div>
 
@@ -225,7 +330,7 @@ const projectsList = getProjects();
   <script>
     import { WTerm } from "@wterm/dom";
     import "@wterm/dom/css";
-    import { createIcons, Terminal, Code2, Folder, FolderOpen, RefreshCw, Play, Trash2, Smartphone, Monitor, ChevronDown, FileCode, Coffee, FileText, Github } from "lucide";
+    import { createIcons, Terminal, Code2, Folder, FolderOpen, RefreshCw, Play, Trash2, Smartphone, Monitor, ChevronDown, FileCode, Coffee, FileText, Github, Download, X } from "lucide";
 
     // Initialize UI Icons
     createIcons({
@@ -243,7 +348,9 @@ const projectsList = getProjects();
         FileCode,
         Coffee,
         FileText,
-        Github
+        Github,
+        Download,
+        X
       }
     });
 
@@ -257,37 +364,55 @@ const projectsList = getProjects();
       modifiedCodes[p.id] = p.code;
     });
 
-    // Mobile tabs handler
+    // Mobile tabs selectors
     const tabExplorer = document.getElementById("tab-btn-explorer");
     const tabEditor = document.getElementById("tab-btn-editor");
     const tabTerminal = document.getElementById("tab-btn-terminal");
 
     const sidebarExplorer = document.getElementById("sidebar-explorer");
+    const mainWorkspace = document.getElementById("main-workspace");
     const panelEditor = document.getElementById("panel-editor");
     const panelTerminal = document.getElementById("panel-terminal");
 
     function switchMobileTab(tab) {
+      if (window.innerWidth >= 1024) return;
+
       // Hide all panels on mobile
       sidebarExplorer.classList.add("hidden");
-      panelEditor.classList.add("hidden");
-      panelTerminal.classList.add("hidden");
+      sidebarExplorer.classList.remove("flex");
 
-      // Reset tab button borders/text
+      mainWorkspace.classList.add("hidden");
+      mainWorkspace.classList.remove("grid");
+
+      panelEditor.classList.add("hidden");
+      panelEditor.classList.remove("flex");
+
+      panelTerminal.classList.add("hidden");
+      panelTerminal.classList.remove("flex");
+
+      // Reset tab button styling
       tabExplorer.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5";
       tabEditor.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5";
       tabTerminal.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5";
 
       if (tab === "explorer") {
         sidebarExplorer.classList.remove("hidden");
+        sidebarExplorer.classList.add("flex");
         tabExplorer.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5";
       } else if (tab === "editor") {
+        mainWorkspace.classList.remove("hidden");
+        mainWorkspace.classList.add("grid");
         panelEditor.classList.remove("hidden");
+        panelEditor.classList.add("flex");
         tabEditor.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5";
         if (editorInstance) {
           setTimeout(() => editorInstance.layout(), 50);
         }
       } else if (tab === "terminal") {
+        mainWorkspace.classList.remove("hidden");
+        mainWorkspace.classList.add("grid");
         panelTerminal.classList.remove("hidden");
+        panelTerminal.classList.add("flex");
         tabTerminal.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5";
       }
     }
@@ -301,18 +426,149 @@ const projectsList = getProjects();
       switchMobileTab("explorer");
     } else {
       sidebarExplorer.classList.remove("hidden");
+      sidebarExplorer.classList.add("flex");
+      mainWorkspace.classList.remove("hidden");
+      mainWorkspace.classList.add("grid");
       panelEditor.classList.remove("hidden");
+      panelEditor.classList.add("flex");
       panelTerminal.classList.remove("hidden");
+      panelTerminal.classList.add("flex");
     }
 
     window.addEventListener("resize", () => {
       if (window.innerWidth >= 1024) {
         sidebarExplorer.classList.remove("hidden");
+        sidebarExplorer.classList.add("flex");
+        
+        mainWorkspace.classList.remove("hidden");
+        mainWorkspace.classList.add("grid");
+        
         panelEditor.classList.remove("hidden");
+        panelEditor.classList.add("flex");
+        
         panelTerminal.classList.remove("hidden");
+        panelTerminal.classList.add("flex");
       } else {
-        switchMobileTab("explorer");
+        const activeTab = tabEditor.classList.contains("text-white") ? "editor" : 
+                          (tabTerminal.classList.contains("text-white") ? "terminal" : "explorer");
+        switchMobileTab(activeTab);
       }
+    });
+
+    // Custom Regex-Based Markdown Previewer
+    function parseMarkdown(md) {
+      if (!md || md.trim().length === 0) {
+        return `<div class="p-4 text-center text-slate-500 italic border border-slate-800/40 rounded bg-[#090d16]">No README.md found in this project folder.</div>`;
+      }
+      
+      let html = md
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      // Headers parsing
+      html = html.replace(/^### (.*$)/gim, '<h3 class="text-sm font-bold text-slate-100 mt-4 mb-1">$1</h3>');
+      html = html.replace(/^## (.*$)/gim, '<h2 class="text-base font-bold text-slate-100 border-b border-slate-800 pb-1 mt-5 mb-2">$1</h2>');
+      html = html.replace(/^# (.*$)/gim, '<h1 class="text-lg font-extrabold text-white mt-6 mb-3">$1</h1>');
+
+      // Font weights
+      html = html.replace(/\*\*\*(.*)\*\*\*/g, '<strong><em>$1</em></strong>');
+      html = html.replace(/\*\*(.*)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.*)\*/g, '<em>$1</em>');
+      html = html.replace(/__(.*)__/g, '<strong>$1</strong>');
+      html = html.replace(/_(.*)_/g, '<em>$1</em>');
+
+      // Inline code snippets
+      html = html.replace(/`([^`]+)`/g, '<code class="bg-slate-950 px-1.5 py-0.5 rounded text-indigo-400 font-mono text-xs border border-slate-800">$1</code>');
+
+      // Preformatted multi-line block code
+      html = html.replace(/```(.*?)\n([\s\S]*?)```/gm, '<pre class="bg-slate-950 p-4 rounded-lg my-3 border border-slate-800/80 overflow-x-auto text-xs font-mono text-slate-300">$2</pre>');
+
+      // Bullet Lists & Numbers
+      html = html.replace(/^\s*-\s+(.*$)/gim, '<li class="ml-4 list-disc text-slate-300 my-1">$1</li>');
+      html = html.replace(/^\s*\*\s+(.*$)/gim, '<li class="ml-4 list-disc text-slate-300 my-1">$1</li>');
+      html = html.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="ml-4 list-decimal text-slate-300 my-1">$1</li>');
+
+      // Split paragraphs by spacing
+      html = html.split(/\n{2,}/g).map(p => {
+        const trimmed = p.trim();
+        if (trimmed.startsWith('<h') || trimmed.startsWith('<li') || trimmed.startsWith('<pre') || trimmed.startsWith('<ul') || trimmed.startsWith('<ol')) {
+          return p;
+        }
+        return `<p class="my-2.5 text-xs text-slate-400 leading-relaxed">${p.replace(/\n/g, "<br>")}</p>`;
+      }).join('\n');
+
+      return html;
+    }
+
+    // Editor Tab View selectors
+    const tabCode = document.getElementById("editor-tab-code");
+    const tabReadme = document.getElementById("editor-tab-readme");
+    const viewEditor = document.getElementById("editor-view-container");
+    const viewReadme = document.getElementById("readme-view-container");
+    const readmeContentEl = document.getElementById("readme-content");
+
+    function switchEditorTab(tab) {
+      if (tab === "code") {
+        tabCode.className = "px-4 py-2 text-xs font-semibold border-r border-slate-800 border-b-2 border-indigo-500 text-white flex items-center space-x-1.5 cursor-pointer";
+        tabReadme.className = "px-4 py-2 text-xs font-semibold border-r border-slate-800 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer";
+        viewEditor.classList.remove("hidden");
+        viewReadme.classList.add("hidden");
+        if (editorInstance) {
+          setTimeout(() => editorInstance.layout(), 50);
+        }
+      } else if (tab === "readme") {
+        tabCode.className = "px-4 py-2 text-xs font-semibold border-r border-slate-800 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer";
+        tabReadme.className = "px-4 py-2 text-xs font-semibold border-r border-slate-800 border-b-2 border-indigo-500 text-white flex items-center space-x-1.5 cursor-pointer";
+        viewEditor.classList.add("hidden");
+        viewReadme.classList.remove("hidden");
+        
+        const p = PROJECTS.find(proj => proj.id === activeProjectId);
+        if (p) {
+          readmeContentEl.innerHTML = parseMarkdown(p.readme);
+        }
+      }
+    }
+
+    tabCode.addEventListener("click", () => switchEditorTab("code"));
+    tabReadme.addEventListener("click", () => switchEditorTab("readme"));
+
+    // Setup Compiler Instruction Modal Logic
+    const compilerModal = document.getElementById("compiler-modal");
+    const btnOpenCompilerModal = document.getElementById("btn-compiler-modal");
+    const btnCloseCompilerModal = document.getElementById("close-compiler-modal");
+    const btnCloseCompilerModalFooter = document.getElementById("btn-close-compiler-modal-footer");
+
+    btnOpenCompilerModal.addEventListener("click", () => {
+      compilerModal.classList.remove("hidden");
+    });
+
+    const closeModal = () => {
+      compilerModal.classList.add("hidden");
+    };
+
+    btnCloseCompilerModal.addEventListener("click", closeModal);
+    btnCloseCompilerModalFooter.addEventListener("click", closeModal);
+
+    compilerModal.addEventListener("click", (e) => {
+      if (e.target === compilerModal) {
+        closeModal();
+      }
+    });
+
+    document.querySelectorAll(".btn-copy").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const text = btn.getAttribute("data-copy");
+        navigator.clipboard.writeText(text).then(() => {
+          const original = btn.textContent;
+          btn.textContent = "Copied!";
+          btn.classList.add("text-emerald-400");
+          setTimeout(() => {
+            btn.textContent = original;
+            btn.classList.remove("text-emerald-400");
+          }, 1500);
+        });
+      });
     });
 
     // Render Redesigned Repository Map/Explorer
@@ -320,7 +576,6 @@ const projectsList = getProjects();
     function renderExplorer(filter = "") {
       const listEl = document.getElementById("project-list");
       
-      // Group files by folder
       const folders = {};
       PROJECTS.forEach(p => {
         if (!folders[p.folder]) {
@@ -331,7 +586,6 @@ const projectsList = getProjects();
 
       let html = "";
       for (const [folderName, files] of Object.entries(folders)) {
-        // Filter files inside folders
         const filteredFiles = files.filter(f => f.filename.toLowerCase().includes(filter.toLowerCase()) || folderName.toLowerCase().includes(filter.toLowerCase()));
         if (filteredFiles.length === 0) continue;
 
@@ -387,7 +641,7 @@ const projectsList = getProjects();
         header.addEventListener('click', () => {
           const folderName = header.getAttribute('data-toggle');
           collapsedFolders[folderName] = !collapsedFolders[folderName];
-          renderExplorer(filter);
+          renderExplorer(fileSearch.value);
         });
       });
 
@@ -577,11 +831,15 @@ const projectsList = getProjects();
           const random = {
             randint: (a, b) => Math.floor(Math.random() * (b - a + 1)) + a,
             sample: (chars, len) => {
-              let res = '';
+              if (len > chars.length) throw new Error("ValueError: Sample larger than population or is negative");
+              let arr = Array.isArray(chars) ? [...chars] : String(chars).split('');
+              let res = [];
               for (let i = 0; i < len; i++) {
-                res += chars[Math.floor(Math.random() * chars.length)];
+                let idx = Math.floor(Math.random() * arr.length);
+                res.push(arr[idx]);
+                arr.splice(idx, 1);
               }
-              return res.split('');
+              return res;
             }
           };
           const math = {
@@ -601,13 +859,18 @@ const projectsList = getProjects();
           async function run() {
         `;
 
-        // Robust scoping scanner to declare variables at the top of the closure
+        // Predeclare identifiers
         let vars = new Set();
+        let customFuncs = [];
         for (let line of lines) {
           let trimmed = line.trim();
           let m = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=[^=]/);
           if (m) {
             vars.add(m[1]);
+          }
+          if (trimmed.startsWith('def ')) {
+            let funcName = trimmed.substring(4, trimmed.indexOf('(')).trim();
+            customFuncs.push(funcName);
           }
         }
         let preDeclarations = Array.from(vars).map(v => `let ${v};`).join('\n');
@@ -619,7 +882,7 @@ const projectsList = getProjects();
           let line = lines[i];
           let trimmed = line.trim();
 
-          // Safely skip empty space, comments, and raw python module imports
+          // Skip comments, whitespace, and modules
           if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('import ') || trimmed.startsWith('from ') || trimmed.startsWith('global ')) {
             continue;
           }
@@ -627,7 +890,6 @@ const projectsList = getProjects();
           let spaces = line.match(/^([ \t]*)/)[0];
           let indent = spaces.replace(/\t/g, '    ').length;
 
-          // Align structural indent boundaries statefully
           let endsWithColon = trimmed.endsWith(':');
           let stmt = endsWithColon ? trimmed.slice(0, -1).trim() : trimmed;
           let isExcept = stmt.startsWith('except');
@@ -648,11 +910,19 @@ const projectsList = getProjects();
             } else if (stmt.startsWith('if ')) {
               let cond = stmt.substring(3).trim();
               cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
+              for (let func of customFuncs) {
+                const reg = new RegExp(`\\b${func}\\(`, 'g');
+                cond = cond.replace(reg, `await ${func}(`);
+              }
               js += `if (${cond}) {\n`;
               indentStack.push(indent + 4);
             } else if (stmt.startsWith('elif ')) {
               let cond = stmt.substring(5).trim();
               cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
+              for (let func of customFuncs) {
+                const reg = new RegExp(`\\b${func}\\(`, 'g');
+                cond = cond.replace(reg, `await ${func}(`);
+              }
               js += `} else if (${cond}) {\n`;
               indentStack.push(indent + 4);
             } else if (stmt === 'else') {
@@ -687,6 +957,15 @@ const projectsList = getProjects();
               indentStack.push(indent + 4);
             }
           } else {
+            // Prepend awaits on function calls in body
+            for (let func of customFuncs) {
+              const reg = new RegExp(`\\b${func}\\(`, 'g');
+              stmt = stmt.replace(reg, `await ${func}(`);
+            }
+
+            // Convert floor division syntax
+            stmt = stmt.replace(/([a-zA-Z0-9_]+)\s*\/\/\s*([a-zA-Z0-9_]+)/g, 'Math.floor($1 / $2)');
+
             if (stmt.startsWith('print(')) {
               let inner = stmt.substring(6, stmt.length - 1).trim();
               if (inner.startsWith('f"') || inner.startsWith("f'")) {
@@ -700,7 +979,6 @@ const projectsList = getProjects();
               let inner = stmt.substring(6, stmt.length - 1).trim();
               js += `await input(${inner});\n`;
             } else {
-              // Convert .join syntax representation dynamically: e.g. "''.join(random.sample(...))" to "random.sample(...).join('')"
               stmt = stmt.replace(/['"](.*)['"]\.join\((.*)\)/g, "($2).join('$1')");
               js += `${stmt};\n`;
             }
@@ -724,7 +1002,6 @@ const projectsList = getProjects();
         let jsCode = `async function run() {\n`;
         let vars = new Set();
 
-        // Scan declarations inside main loop boundary
         for (let line of lines) {
           let trimmed = line.trim();
           let m = trimmed.match(/^(int|float|double|char|bool)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
@@ -921,88 +1198,4 @@ const projectsList = getProjects();
       await activeVM.execute(codeToRun, p.lang);
       
       term.write(`\r\n\x1b[32m[Program finished execution]\x1b[0m\r\n`);
-      isProgramRunning = false;
-      activeVM = null;
-      term.write("guest@cli-playground:~$ ");
-    }
-
-    // Workstation switch project project loading
-    function switchProject(id) {
-      if (isProgramRunning) {
-        term.write("\r\n[Alert] Cannot switch workspace while program is running.\r\n");
-        return;
-      }
-
-      if (editorInstance && activeProjectId) {
-        modifiedCodes[activeProjectId] = editorInstance.getValue();
-      }
-
-      activeProjectId = id;
-      const p = PROJECTS.find(proj => proj.id === id);
-      if (!p) return;
-
-      document.getElementById("editor-filename").textContent = p.file;
-      document.getElementById("editor-badge").textContent = p.badge;
-
-      renderExplorer(fileSearch.value);
-
-      loadMonaco(() => {
-        let langMap = p.lang;
-        if (p.lang === 'c') langMap = 'cpp';
-        else if (p.lang === 'plaintext') langMap = 'plaintext';
-        
-        if (editorInstance) {
-          editorInstance.setValue(modifiedCodes[id]);
-          monaco.editor.setModelLanguage(editorInstance.getModel(), langMap);
-        } else {
-          editorInstance = monaco.editor.create(document.getElementById("editor-container"), {
-            value: modifiedCodes[id],
-            language: langMap,
-            theme: 'vs-dark',
-            automaticLayout: true,
-            fontFamily: 'Fira Code, monospace',
-            fontSize: 14,
-            minimap: { enabled: false },
-            scrollbar: {
-              vertical: 'visible',
-              horizontal: 'visible'
-            }
-          });
-        }
-      });
-    }
-
-    // Toolbar Action Listeners
-    document.getElementById("btn-run").addEventListener("click", () => {
-      if (activeProjectId) {
-        launchProgram(activeProjectId);
-      }
-    });
-
-    document.getElementById("btn-reset").addEventListener("click", () => {
-      if (confirm("Revert file to origin repository version?")) {
-        const p = PROJECTS.find(proj => proj.id === activeProjectId);
-        if (p) {
-          modifiedCodes[activeProjectId] = p.code;
-          if (editorInstance) {
-            editorInstance.setValue(p.code);
-          }
-        }
-      }
-    });
-
-    document.getElementById("btn-clear").addEventListener("click", () => {
-      term.write("\x1b[2J\x1b[H");
-    });
-
-    // Lifecycle Init
-    window.addEventListener("DOMContentLoaded", () => {
-      renderExplorer();
-      initTerminal();
-      if (PROJECTS.length > 0) {
-        switchProject(PROJECTS[0].id);
-      }
-    });
-  </script>
-</body>
-</html>
+      isProgra
