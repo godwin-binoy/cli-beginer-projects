@@ -52,12 +52,15 @@ function getProjects() {
           if (ext === '.py') { lang = 'python'; badge = 'Python'; }
           else if (ext === '.c') { lang = 'c'; badge = 'C'; }
           else if (ext === '.java') { lang = 'java'; badge = 'Java'; }
-          else continue;
+          else if (ext === '.txt') { lang = 'plaintext'; badge = 'Text'; }
+          else if (ext === '.json') { lang = 'json'; badge = 'JSON'; }
+          else if (ext === '.md') { lang = 'markdown'; badge = 'MD'; }
+          else { lang = 'plaintext'; badge = ext.toUpperCase().replace('.', ''); }
           
           const code = fs.readFileSync(filePath, 'utf-8');
           const id = `${item.toLowerCase()}-${file.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
           const title = item.replace(/-/g, ' ');
-          const description = `Interactive ${badge} program for ${title.toLowerCase()}.`;
+          const description = `Repository file: ${item}/${file}.`;
           
           projects.push({
             id,
@@ -131,24 +134,24 @@ const projectsList = getProjects();
   <!-- Workspace Shell -->
   <div class="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0 relative">
     
-    <!-- Projects Selection Explorer -->
+    <!-- Redesigned Repository Map / File Explorer -->
     <aside id="sidebar-explorer" class="w-full lg:w-72 border-r border-slate-800 bg-[#0d111a]/40 flex flex-col h-full lg:flex overflow-y-auto">
       <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Project Index</span>
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Repository Map</span>
         <span class="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">{projectsList.length} files</span>
       </div>
       <div class="p-3 border-b border-slate-800 bg-[#0c1018]">
         <input type="text" id="file-search" placeholder="Search files..." class="w-full bg-slate-950 text-slate-300 border border-slate-800 rounded px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500 transition-colors" />
       </div>
       <div id="project-list" class="flex-1 p-3 space-y-1 overflow-y-auto scrollbar-thin">
-        <!-- Injected dynamically via client script -->
+        <!-- Folders and Nested Files dynamically added -->
       </div>
     </aside>
 
-    <!-- Main Workspace (Editor + Terminal) -->
+    <!-- Main Workspace (Editor + Terminal Panels) -->
     <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
       
-      <!-- Interactive Code Editor -->
+      <!-- Interactive Code Editor Panel -->
       <section id="panel-editor" class="hidden lg:flex flex-col border-b lg:border-b-0 lg:border-r border-slate-800 overflow-hidden h-full">
         <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
           <div class="flex items-center space-x-2">
@@ -170,7 +173,7 @@ const projectsList = getProjects();
         
         <!-- Editor Bottom Actions -->
         <div class="p-4 border-t border-slate-800 bg-[#0d111a]/25 flex items-center justify-between flex-wrap gap-2 shrink-0">
-          <p class="text-[11px] text-slate-500 font-medium">In-memory compiler. Edits run instantly inside the terminal.</p>
+          <p class="text-[11px] text-slate-500 font-medium">Auto-saved in-memory. Double-click any file in explorer to run immediately.</p>
           <button id="btn-run" class="flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold text-xs px-4.5 py-2 rounded transition shadow-[0_0_15px_rgba(16,185,129,0.15)] cursor-pointer">
             <i data-lucide="play" class="w-3.5 h-3.5"></i>
             <span>Run Program</span>
@@ -178,7 +181,7 @@ const projectsList = getProjects();
         </div>
       </section>
 
-      <!-- Interactive Web-Native Terminal Sandbox -->
+      <!-- Terminal Panel -->
       <section id="panel-terminal" class="hidden lg:flex flex-col overflow-hidden bg-[#030712] h-full">
         <div class="p-4 border-b border-slate-800 bg-[#0d111a]/20 flex items-center justify-between">
           <div class="flex items-center space-x-2">
@@ -207,7 +210,7 @@ const projectsList = getProjects();
           </div>
           <div>
             <span class="text-slate-500 block">SANDBOX ENGINE</span>
-            <span class="text-slate-300 font-semibold">Async Transpiler</span>
+            <span class="text-slate-300 font-semibold">Async VM</span>
           </div>
         </div>
       </section>
@@ -222,7 +225,7 @@ const projectsList = getProjects();
   <script>
     import { WTerm } from "@wterm/dom";
     import "@wterm/dom/css";
-    import { createIcons, Terminal, Code2, Folder, RefreshCw, Play, Trash2, Smartphone, Monitor, Github } from "lucide";
+    import { createIcons, Terminal, Code2, Folder, FolderOpen, RefreshCw, Play, Trash2, Smartphone, Monitor, ChevronDown, FileCode, Coffee, FileText, Github } from "lucide";
 
     // Initialize UI Icons
     createIcons({
@@ -230,11 +233,16 @@ const projectsList = getProjects();
         Terminal,
         Code2,
         Folder,
+        FolderOpen,
         RefreshCw,
         Play,
         Trash2,
         Smartphone,
         Monitor,
+        ChevronDown,
+        FileCode,
+        Coffee,
+        FileText,
         Github
       }
     });
@@ -243,6 +251,7 @@ const projectsList = getProjects();
     let activeProjectId = PROJECTS.length > 0 ? PROJECTS[0].id : null;
     let editorInstance = null;
     const modifiedCodes = {};
+    const collapsedFolders = {};
 
     PROJECTS.forEach(p => {
       modifiedCodes[p.id] = p.code;
@@ -263,26 +272,23 @@ const projectsList = getProjects();
       panelEditor.classList.add("hidden");
       panelTerminal.classList.add("hidden");
 
-      tabExplorer.classList.remove("border-indigo-500", "text-white");
-      tabExplorer.classList.add("border-transparent", "text-slate-400");
-      tabEditor.classList.remove("border-indigo-500", "text-white");
-      tabEditor.classList.add("border-transparent", "text-slate-400");
-      tabTerminal.classList.remove("border-indigo-500", "text-white");
-      tabTerminal.classList.add("border-transparent", "text-slate-400");
+      // Reset tab button borders/text
+      tabExplorer.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5";
+      tabEditor.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5";
+      tabTerminal.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-transparent text-slate-400 flex items-center justify-center gap-1.5";
 
       if (tab === "explorer") {
         sidebarExplorer.classList.remove("hidden");
-        tabExplorer.classList.add("border-indigo-500", "text-white");
-        tabExplorer.classList.remove("border-transparent", "text-slate-400");
+        tabExplorer.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5";
       } else if (tab === "editor") {
         panelEditor.classList.remove("hidden");
-        tabEditor.classList.add("border-indigo-500", "text-white");
-        tabEditor.classList.remove("border-transparent", "text-slate-400");
-        if (editorInstance) editorInstance.layout();
+        tabEditor.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5";
+        if (editorInstance) {
+          setTimeout(() => editorInstance.layout(), 50);
+        }
       } else if (tab === "terminal") {
         panelTerminal.classList.remove("hidden");
-        tabTerminal.classList.add("border-indigo-500", "text-white");
-        tabTerminal.classList.remove("border-transparent", "text-slate-400");
+        tabTerminal.className = "flex-1 py-3 text-xs font-semibold text-center border-b-2 border-indigo-500 text-white flex items-center justify-center gap-1.5";
       }
     }
 
@@ -309,33 +315,96 @@ const projectsList = getProjects();
       }
     });
 
-    // Render Side Panel Project Explorer list
+    // Render Redesigned Repository Map/Explorer
     const fileSearch = document.getElementById("file-search");
     function renderExplorer(filter = "") {
       const listEl = document.getElementById("project-list");
-      listEl.innerHTML = PROJECTS.filter(p => p.title.toLowerCase().includes(filter.toLowerCase())).map(project => {
-        const isActive = project.id === activeProjectId;
-        return `
-          <button data-id="${project.id}" class="w-full text-left px-3 py-2.5 rounded transition flex flex-col space-y-1 cursor-pointer ${
-            isActive 
-              ? 'bg-indigo-600/15 border border-indigo-500/30 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] font-bold' 
-              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent font-medium'
-          }">
-            <div class="flex items-center justify-between w-full">
-              <span class="text-xs font-mono tracking-tight truncate max-w-[170px]">${project.filename}</span>
-              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-950 text-slate-500 border border-slate-800 uppercase font-semibold">${project.badge}</span>
-            </div>
-            <span class="text-[10px] leading-relaxed text-slate-500 truncate w-full font-sans">${project.description}</span>
-          </button>
-        `;
-      }).join('');
+      
+      // Group files by folder
+      const folders = {};
+      PROJECTS.forEach(p => {
+        if (!folders[p.folder]) {
+          folders[p.folder] = [];
+        }
+        folders[p.folder].push(p);
+      });
 
-      listEl.querySelectorAll('button[data-id]').forEach(btn => {
+      let html = "";
+      for (const [folderName, files] of Object.entries(folders)) {
+        // Filter files inside folders
+        const filteredFiles = files.filter(f => f.filename.toLowerCase().includes(filter.toLowerCase()) || folderName.toLowerCase().includes(filter.toLowerCase()));
+        if (filteredFiles.length === 0) continue;
+
+        const isCollapsed = collapsedFolders[folderName];
+        const chevronClass = isCollapsed ? "-rotate-90" : "";
+        const contentsClass = isCollapsed ? "hidden" : "block";
+        const folderIcon = isCollapsed ? "folder" : "folder-open";
+
+        html += `
+          <div class="folder-group mb-2" data-folder="${folderName}">
+            <button class="folder-header w-full flex items-center justify-between py-1.5 px-2.5 text-slate-300 bg-slate-950/60 hover:bg-slate-900/60 border border-slate-800/40 rounded transition cursor-pointer" data-toggle="${folderName}">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="${folderIcon}" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span class="text-[11px] font-semibold font-mono tracking-tight">${folderName}</span>
+              </div>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${chevronClass}"></i>
+            </button>
+            <div class="folder-contents pl-3 pr-1 py-1 space-y-1 mt-1 ${contentsClass}">
+              ${filteredFiles.map(file => {
+                const isActive = file.id === activeProjectId;
+                let icon = "file-text";
+                let iconColor = "text-slate-400";
+                if (file.lang === "python") { icon = "terminal"; iconColor = "text-sky-400"; }
+                else if (file.lang === "c") { icon = "file-code"; iconColor = "text-indigo-400"; }
+                else if (file.lang === "java") { icon = "coffee"; iconColor = "text-orange-400"; }
+
+                return `
+                  <button data-id="${file.id}" class="file-item w-full text-left py-1.5 px-2 rounded transition flex items-center justify-between cursor-pointer ${
+                    isActive 
+                      ? 'bg-indigo-600/15 border border-indigo-500/30 text-white font-bold' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30 border border-transparent font-medium'
+                  }">
+                    <div class="flex items-center space-x-1.5 min-w-0">
+                      <i data-lucide="${icon}" class="w-3.5 h-3.5 ${iconColor} shrink-0"></i>
+                      <span class="text-[11px] font-mono truncate">${file.filename}</span>
+                    </div>
+                    <span class="text-[8px] font-mono px-1 py-0.5 rounded bg-slate-950 text-slate-500 border border-slate-800/60 uppercase font-semibold shrink-0">${file.badge}</span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      listEl.innerHTML = html;
+      createIcons({
+        icons: { Folder, FolderOpen, ChevronDown, Terminal, FileCode, Coffee, FileText }
+      });
+
+      // Attach fold/collapse listeners
+      listEl.querySelectorAll('.folder-header[data-toggle]').forEach(header => {
+        header.addEventListener('click', () => {
+          const folderName = header.getAttribute('data-toggle');
+          collapsedFolders[folderName] = !collapsedFolders[folderName];
+          renderExplorer(filter);
+        });
+      });
+
+      // Attach file click triggers
+      listEl.querySelectorAll('.file-item[data-id]').forEach(btn => {
         btn.addEventListener('click', () => {
           switchProject(btn.getAttribute('data-id'));
           if (window.innerWidth < 1024) {
             switchMobileTab("editor");
           }
+        });
+
+        // Instant run on double click
+        btn.addEventListener('dblclick', () => {
+          const id = btn.getAttribute('data-id');
+          switchProject(id);
+          launchProgram(id);
         });
       });
     }
@@ -455,7 +524,7 @@ const projectsList = getProjects();
       }
     }
 
-    // UniversalVM Interpreter Core Engine (Supports Python, C, Java)
+    // High-Reliability Stateful Transpiler & Virtual Machine Context (No-crash architecture)
     class UniversalVM {
       constructor(terminalInstance) {
         this.term = terminalInstance;
@@ -504,23 +573,26 @@ const projectsList = getProjects();
 
       transpilePython(code) {
         const lines = code.split('\n');
-        let jsCode = `
+        let js = `
           const random = {
             randint: (a, b) => Math.floor(Math.random() * (b - a + 1)) + a,
-            sample: (arr, n) => {
-              let shuffled = [...arr].sort(() => 0.5 - Math.random());
-              return shuffled.slice(0, n);
+            sample: (chars, len) => {
+              let res = '';
+              for (let i = 0; i < len; i++) {
+                res += chars[Math.floor(Math.random() * chars.length)];
+              }
+              return res.split('');
             }
           };
           const math = {
-            log: (x, base) => Math.log(x) / Math.log(base || Math.E),
+            log: (x, base = Math.E) => Math.log(x) / Math.log(base),
             log2: (x) => Math.log2(x)
           };
           const len = (x) => (x ? x.length : 0);
           const round = (x) => Math.round(x);
           const int = (x) => {
             let v = parseInt(x);
-            if (isNaN(v)) throw new Error("ValueError: invalid literal for int()");
+            if (isNaN(v)) throw new Error("ValueError");
             return v;
           };
           const str = (x) => String(x);
@@ -529,118 +601,140 @@ const projectsList = getProjects();
           async function run() {
         `;
 
-        let currentIndent = 0;
-
+        // Robust scoping scanner to declare variables at the top of the closure
+        let vars = new Set();
         for (let line of lines) {
           let trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith('#')) continue;
+          let m = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=[^=]/);
+          if (m) {
+            vars.add(m[1]);
+          }
+        }
+        let preDeclarations = Array.from(vars).map(v => `let ${v};`).join('\n');
+        js += preDeclarations + "\n";
+
+        let indentStack = [0];
+
+        for (let i = 0; i < lines.length; i++) {
+          let line = lines[i];
+          let trimmed = line.trim();
+
+          // Safely skip empty space, comments, and raw python module imports
+          if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('import ') || trimmed.startsWith('from ') || trimmed.startsWith('global ')) {
+            continue;
+          }
 
           let spaces = line.match(/^([ \t]*)/)[0];
           let indent = spaces.replace(/\t/g, '    ').length;
 
-          while (indent < currentIndent) {
-            jsCode += ' '.repeat(currentIndent) + '}\n';
-            currentIndent -= 4;
-          }
-
-          let statement = trimmed;
+          // Align structural indent boundaries statefully
           let endsWithColon = trimmed.endsWith(':');
-          if (endsWithColon) {
-            statement = trimmed.slice(0, -1).trim();
+          let stmt = endsWithColon ? trimmed.slice(0, -1).trim() : trimmed;
+          let isExcept = stmt.startsWith('except');
+
+          while (indent < indentStack[indentStack.length - 1]) {
+            let popped = indentStack.pop();
+            if (!isExcept || indentStack[indentStack.length - 1] > indent) {
+              js += ' '.repeat(popped) + '}\n';
+            }
           }
 
-          if (statement.startsWith('while ')) {
-            let cond = statement.substring(6).trim();
-            if (cond === 'True') cond = 'true';
-            statement = `while (${cond}) {`;
-            currentIndent += 4;
-          } else if (statement.startsWith('if ')) {
-            let cond = statement.substring(3).trim();
-            cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
-            statement = `if (${cond}) {`;
-            currentIndent += 4;
-          } else if (statement.startsWith('elif ')) {
-            let cond = statement.substring(5).trim();
-            cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
-            statement = `} else if (${cond}) {`;
-          } else if (statement === 'else') {
-            statement = `} else {`;
-          } else if (statement === 'try') {
-            statement = `try {`;
-            currentIndent += 4;
-          } else if (statement.startsWith('except')) {
-            statement = `} catch (err) {`;
-          } else if (statement.startsWith('def ')) {
-            let sig = statement.substring(4).trim();
-            statement = `async function ${sig} {`;
-            currentIndent += 4;
-          } else if (statement.startsWith('for ') && statement.includes(' in range(')) {
-            let loopParts = statement.substring(4).split(' in range(');
-            let varName = loopParts[0].trim();
-            let rangeArgs = loopParts[1].slice(0, -1).split(',');
-            let start = "0", end = "0", step = "1";
-            if (rangeArgs.length === 1) {
-              end = rangeArgs[0].trim();
-            } else if (rangeArgs.length === 2) {
-              start = rangeArgs[0].trim();
-              end = rangeArgs[1].trim();
-            } else if (rangeArgs.length === 3) {
-              start = rangeArgs[0].trim();
-              end = rangeArgs[1].trim();
-              step = rangeArgs[2].trim();
+          if (endsWithColon) {
+            if (stmt.startsWith('while ')) {
+              let cond = stmt.substring(6).trim();
+              if (cond === 'True') cond = 'true';
+              js += `while (${cond}) {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt.startsWith('if ')) {
+              let cond = stmt.substring(3).trim();
+              cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
+              js += `if (${cond}) {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt.startsWith('elif ')) {
+              let cond = stmt.substring(5).trim();
+              cond = cond.replace(/\band\b/g, '&&').replace(/\bor\b/g, '||').replace(/\bnot\b/g, '!');
+              js += `} else if (${cond}) {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt === 'else') {
+              js += `} else {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt === 'try') {
+              js += `try {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt.startsWith('except')) {
+              js += `} catch (err) {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt.startsWith('def ')) {
+              let sig = stmt.substring(4).trim();
+              js += `async function ${sig} {\n`;
+              indentStack.push(indent + 4);
+            } else if (stmt.startsWith('for ') && stmt.includes(' in range(')) {
+              let loopParts = stmt.substring(4).split(' in range(');
+              let varName = loopParts[0].trim();
+              let rangeArgs = loopParts[1].slice(0, -1).split(',');
+              let start = "0", end = "0", step = "1";
+              if (rangeArgs.length === 1) {
+                end = rangeArgs[0].trim();
+              } else if (rangeArgs.length === 2) {
+                start = rangeArgs[0].trim();
+                end = rangeArgs[1].trim();
+              } else if (rangeArgs.length === 3) {
+                start = rangeArgs[0].trim();
+                end = rangeArgs[1].trim();
+                step = rangeArgs[2].trim();
+              }
+              js += `for (let ${varName} = ${start}; ${varName} < ${end}; ${varName} += ${step}) {\n`;
+              indentStack.push(indent + 4);
             }
-            statement = `for (let ${varName} = ${start}; ${varName} < ${end}; ${varName} += ${step}) {`;
-            currentIndent += 4;
           } else {
-            if (statement.startsWith('print(')) {
-              let inner = statement.substring(6, statement.length - 1).trim();
+            if (stmt.startsWith('print(')) {
+              let inner = stmt.substring(6, stmt.length - 1).trim();
               if (inner.startsWith('f"') || inner.startsWith("f'")) {
                 let content = inner.substring(2, inner.length - 1);
                 content = content.replace(/\{([^}]+)\}/g, '${$1}');
-                statement = `print(\`${content}\\n\`);`;
+                js += `print(\`${content}\\n\`);\n`;
               } else {
-                statement = `print(${inner} + '\\n');`;
+                js += `print(${inner} + '\\n');\n`;
               }
-            } else if (statement.startsWith('input(')) {
-              let inner = statement.substring(6, statement.length - 1).trim();
-              statement = `await input(${inner});`;
+            } else if (stmt.startsWith('input(')) {
+              let inner = stmt.substring(6, stmt.length - 1).trim();
+              js += `await input(${inner});\n`;
             } else {
-              if (statement.includes(' = ') && !statement.startsWith('let ') && !statement.startsWith('var ') && !statement.startsWith('const ')) {
-                let left = statement.split(' = ')[0].trim();
-                if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(left)) {
-                  statement = `let ${statement}`;
-                }
-              }
-              statement = statement.replace(/\bmath\.log\(/g, 'math.log(');
-              statement = statement.replace(/\bmath\.log2\(/g, 'math.log2(');
-              statement = statement.replace(/\bfloat\(/g, 'parseFloat(');
-              statement = statement.replace(/\bint\(/g, 'int(');
-              statement = statement.replace(/\bexit\(\)/g, 'exit()');
-              statement = statement + ';';
+              // Convert .join syntax representation dynamically: e.g. "''.join(random.sample(...))" to "random.sample(...).join('')"
+              stmt = stmt.replace(/['"](.*)['"]\.join\((.*)\)/g, "($2).join('$1')");
+              js += `${stmt};\n`;
             }
           }
-
-          jsCode += ' '.repeat(indent + 4) + statement + '\n';
         }
 
-        while (currentIndent > 0) {
-          jsCode += ' '.repeat(currentIndent) + '}\n';
-          currentIndent -= 4;
+        while (indentStack.length > 1) {
+          js += '}\n';
+          indentStack.pop();
         }
 
-        jsCode += `
+        js += `
           }
           await run();
         `;
-        return jsCode;
+        return js;
       }
 
       transpileC(code) {
         const lines = code.split('\n');
-        let jsCode = `
-          async function run() {
-            let user_input = 0;
-        `;
+        let jsCode = `async function run() {\n`;
+        let vars = new Set();
+
+        // Scan declarations inside main loop boundary
+        for (let line of lines) {
+          let trimmed = line.trim();
+          let m = trimmed.match(/^(int|float|double|char|bool)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+          if (m) {
+            vars.add(m[2]);
+          }
+        }
+
+        let preDeclarations = Array.from(vars).map(v => `let ${v} = 0;`).join('\n');
+        jsCode += preDeclarations + "\n";
 
         for (let line of lines) {
           let trimmed = line.trim();
@@ -655,62 +749,88 @@ const projectsList = getProjects();
               let commaIndex = inner.indexOf(',');
               let formatStr = inner.substring(0, commaIndex).trim();
               formatStr = formatStr.substring(1, formatStr.length - 1);
-              let vars = inner.substring(commaIndex + 1).split(',').map(v => v.trim());
+              let varsStr = inner.substring(commaIndex + 1);
+              let varsList = varsStr.split(',').map(v => v.trim());
               let i = 0;
-              let formatted = formatStr.replace(/%d/g, () => `\${${vars[i++]}}`);
+              let formatted = formatStr.replace(/%d/g, () => `\${${varsList[i++]}}`);
               statement = `print(\`${formatted}\`);`;
             } else {
-              statement = `print(${inner});`;
+              let text = inner.substring(1, inner.length - 1);
+              statement = `print(\`${text}\`);`;
             }
           } else if (trimmed.startsWith('scanf(')) {
             let inner = trimmed.substring(6, trimmed.indexOf(');'));
             let parts = inner.split(',');
             let varName = parts[1].replace('&', '').trim();
             statement = `${varName} = parseInt(await input(""));`;
-          } else if (trimmed.startsWith('int ')) {
-            statement = 'let ' + trimmed.substring(4);
-          } else if (trimmed.startsWith('for (int ')) {
-            statement = 'for (let ' + trimmed.substring(9);
+          } else {
+            statement = statement.replace(/^(int|float|double|char|bool)\s+/g, '');
+            statement = statement.replace(/for\s*\(int\s+/g, 'for (let ');
           }
 
           jsCode += "    " + statement + "\n";
         }
 
-        jsCode += `
-          }
-          await run();
-        `;
+        jsCode += `\n}\nawait run();`;
         return jsCode;
       }
 
       transpileJava(code) {
         const lines = code.split('\n');
         let jsCode = `
-          const check = (val) => {
-            if (!val) return false;
-            for (let c of val) {
+          const check = (value) => {
+            if (!value) return false;
+            for (let c of String(value)) {
               if (c < '0' || c > '9') return false;
             }
             return true;
           };
+          
           const user_input = async () => {
             return await input("");
+          };
+
+          const Integer = {
+            parseInt: (v) => parseInt(v)
+          };
+
+          const Character = {
+            isDigit: (c) => {
+              return c >= '0' && c <= '9';
+            }
           };
 
           async function run() {
         `;
 
+        let vars = new Set();
+        for (let line of lines) {
+          let trimmed = line.trim();
+          let m = trimmed.match(/^(int|String|Scanner|boolean|char)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+          if (m) {
+            if (m[2] !== 'main' && m[2] !== 'check' && m[2] !== 'user_input') {
+              vars.add(m[2]);
+            }
+          }
+        }
+
+        let preDeclarations = Array.from(vars).map(v => `let ${v};`).join('\n');
+        jsCode += "      " + preDeclarations + "\n";
+
         let inMain = false;
         for (let line of lines) {
           let trimmed = line.trim();
-          if (trimmed.includes('public static void main')) {
+          
+          if (trimmed.includes('public static void main') || trimmed.includes('public class')) {
             inMain = true;
             continue;
           }
-          if (inMain && trimmed === '}') {
+          
+          if (trimmed.includes('public static String user_input') || trimmed.includes('public static boolean check')) {
             inMain = false;
             continue;
           }
+
           if (!inMain) continue;
 
           let statement = trimmed;
@@ -720,17 +840,14 @@ const projectsList = getProjects();
           } else if (trimmed.startsWith('System.out.print(')) {
             let inner = trimmed.substring(17, trimmed.indexOf(');'));
             statement = `print(${inner});`;
-          } else if (trimmed.startsWith('String ')) {
-            statement = 'let ' + trimmed.substring(7);
-          } else if (trimmed.startsWith('int ')) {
-            statement = 'let ' + trimmed.substring(4);
-          } else if (trimmed.startsWith('Scanner ')) {
-            continue;
-          } else if (trimmed.startsWith('for (int ')) {
-            statement = 'for (let ' + trimmed.substring(9);
+          } else {
+            statement = statement.replace(/^(int|String|Scanner|boolean|char)\s+/g, '');
+            statement = statement.replace(/for\s*\(\s*char\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.+)\.toCharArray\(\)\s*\)/g, 'for (let $1 of $2)');
+            statement = statement.replace(/for\s*\(int\s+/g, 'for (let ');
+            statement = statement.replace(/\buser_input\(\)/g, 'await user_input()');
           }
 
-          jsCode += "    " + statement + "\n";
+          jsCode += "      " + statement + "\n";
         }
 
         jsCode += `
@@ -750,7 +867,7 @@ const projectsList = getProjects();
           } else if (lang === "java") {
             jsSource = this.transpileJava(code);
           } else {
-            throw new Error("Unsupported compilation target: " + lang);
+            throw new Error("Unsupported target engine: " + lang);
           }
 
           const context = {
@@ -782,6 +899,12 @@ const projectsList = getProjects();
 
       if (isProgramRunning) {
         term.write("\r\n[Alert] A program is already executing. Kill process first.\r\n");
+        return;
+      }
+
+      if (p.lang !== "python" && p.lang !== "c" && p.lang !== "java") {
+        term.write(`\r\n\x1b[31m[Execution Error] Language target [${p.badge}] cannot be compiled inside this native web sandbox. Please select a C, Java, or Python file.\x1b[0m\r\n`);
+        term.write("guest@cli-playground:~$ ");
         return;
       }
 
@@ -824,7 +947,10 @@ const projectsList = getProjects();
       renderExplorer(fileSearch.value);
 
       loadMonaco(() => {
-        const langMap = p.lang === 'c' ? 'cpp' : p.lang;
+        let langMap = p.lang;
+        if (p.lang === 'c') langMap = 'cpp';
+        else if (p.lang === 'plaintext') langMap = 'plaintext';
+        
         if (editorInstance) {
           editorInstance.setValue(modifiedCodes[id]);
           monaco.editor.setModelLanguage(editorInstance.getModel(), langMap);
