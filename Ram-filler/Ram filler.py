@@ -1,6 +1,9 @@
-print('Ram Filler\n----------\n\nThis program will crash automatically after filling ram\n')
+print('Ram Filler\n----------\n\nThis program will fill RAM in chunks.\n')
 input('Enter to fill ram : ')
-data = '0'
+data = []
 print('Filling ram...')
-while True:
-    data += data
+try:
+    while True:
+        data.append('0' * (50 * 1024 * 1024)) # 50 MB chunks
+except MemoryError:
+    print("Out of memory!")

@@ -687,6 +687,41 @@ const projectsList = getProjects();
     let term = null;
     let shellInput = "";
     let isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Controls and reset listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      launchProgram(activeProjectId);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      const p = PROJECTS.find(proj => proj.id === activeProjectId);
+      if (p) {
+        modifiedCodes[p.id] = p.code;
+        if (editorInstance) {
+          editorInstance.setValue(p.code);
+        }
+      }
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Initialize application on load
+    initTerminal().then(() => {
+      renderExplorer();
+      loadMonaco(() => {
+        if (activeProjectId) {
+          switchProject(activeProjectId);
+        }
+      });
+    });
+  </script>
+</body>
+</html>mRunning = false;
     let activeVM = null;
 
     async function initTerminal() {
@@ -696,7 +731,42 @@ const projectsList = getProjects();
         autoResize: true,
         cursorBlink: true,
         onData: (data) => {
-          if (isProgramRunning) {
+          if (isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Controls and reset listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      launchProgram(activeProjectId);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      const p = PROJECTS.find(proj => proj.id === activeProjectId);
+      if (p) {
+        modifiedCodes[p.id] = p.code;
+        if (editorInstance) {
+          editorInstance.setValue(p.code);
+        }
+      }
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Initialize application on load
+    initTerminal().then(() => {
+      renderExplorer();
+      loadMonaco(() => {
+        if (activeProjectId) {
+          switchProject(activeProjectId);
+        }
+      });
+    });
+  </script>
+</body>
+</html>mRunning) {
             if (activeVM) {
               activeVM.handleKey(data);
             }
@@ -709,7 +779,42 @@ const projectsList = getProjects();
               term.write("\r\n");
               executeShellCommand(shellInput.trim());
               shellInput = "";
-              if (!isProgramRunning) {
+              if (!isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Controls and reset listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      launchProgram(activeProjectId);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      const p = PROJECTS.find(proj => proj.id === activeProjectId);
+      if (p) {
+        modifiedCodes[p.id] = p.code;
+        if (editorInstance) {
+          editorInstance.setValue(p.code);
+        }
+      }
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Initialize application on load
+    initTerminal().then(() => {
+      renderExplorer();
+      loadMonaco(() => {
+        if (activeProjectId) {
+          switchProject(activeProjectId);
+        }
+      });
+    });
+  </script>
+</body>
+</html>mRunning) {
                 term.write("guest@cli-playground:~$ ");
               }
             } else if (char === "\u007F" || char === "\b") { // Backspace
@@ -1174,7 +1279,42 @@ const projectsList = getProjects();
       const p = PROJECTS.find(proj => proj.id === id);
       if (!p) return;
 
-      if (isProgramRunning) {
+      if (isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Controls and reset listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      launchProgram(activeProjectId);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      const p = PROJECTS.find(proj => proj.id === activeProjectId);
+      if (p) {
+        modifiedCodes[p.id] = p.code;
+        if (editorInstance) {
+          editorInstance.setValue(p.code);
+        }
+      }
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Initialize application on load
+    initTerminal().then(() => {
+      renderExplorer();
+      loadMonaco(() => {
+        if (activeProjectId) {
+          switchProject(activeProjectId);
+        }
+      });
+    });
+  </script>
+</body>
+</html>mRunning) {
         term.write("\r\n[Alert] A program is already executing. Kill process first.\r\n");
         return;
       }
@@ -1185,7 +1325,42 @@ const projectsList = getProjects();
         return;
       }
 
-      isProgramRunning = true;
+      isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Controls and reset listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      launchProgram(activeProjectId);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      const p = PROJECTS.find(proj => proj.id === activeProjectId);
+      if (p) {
+        modifiedCodes[p.id] = p.code;
+        if (editorInstance) {
+          editorInstance.setValue(p.code);
+        }
+      }
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Initialize application on load
+    initTerminal().then(() => {
+      renderExplorer();
+      loadMonaco(() => {
+        if (activeProjectId) {
+          switchProject(activeProjectId);
+        }
+      });
+    });
+  </script>
+</body>
+</html>mRunning = true;
       activeVM = new UniversalVM(term);
 
       if (window.innerWidth < 1024) {
@@ -1198,4 +1373,39 @@ const projectsList = getProjects();
       await activeVM.execute(codeToRun, p.lang);
       
       term.write(`\r\n\x1b[32m[Program finished execution]\x1b[0m\r\n`);
-      isProgra
+      isProgramRunning = false;
+      activeVM = null;
+      term.write("guest@cli-playground:~$ ");
+    }
+
+    // Controls and reset listeners
+    document.getElementById("btn-run").addEventListener("click", () => {
+      launchProgram(activeProjectId);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      const p = PROJECTS.find(proj => proj.id === activeProjectId);
+      if (p) {
+        modifiedCodes[p.id] = p.code;
+        if (editorInstance) {
+          editorInstance.setValue(p.code);
+        }
+      }
+    });
+
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      term.write("\x1b[2J\x1b[H");
+    });
+
+    // Initialize application on load
+    initTerminal().then(() => {
+      renderExplorer();
+      loadMonaco(() => {
+        if (activeProjectId) {
+          switchProject(activeProjectId);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
