@@ -1,10 +1,10 @@
-import { defineConfig } from 'astro/config';
-import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from "astro/config";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  base: '/cli-beginer-projects/',
+  base: "/cli-beginer-projects/",
   build: {
-    assets: 'assets',
+    assets: "assets",
   },
   vite: {
     plugins: [tailwindcss()],
